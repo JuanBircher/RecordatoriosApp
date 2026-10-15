@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">Recordatorios</string>
+
+    <string name="titulo_pantalla">Mis recordatorios</string>
+    <string name="filtro_estado">Estado</string>
+    <string name="filtro_prioridad">Prioridad</string>
+    <string name="filtro_prioridad_todas">Todas</string>
+    <string name="sin_resultados">No hay recordatorios para este filtro.</string>
+
+    <plurals name="descartados_titulo">
+        <item quantity="one">%d recordatorio descartado por validación</item>
+        <item quantity="other">%d recordatorios descartados por validación</item>
+    </plurals>
+    <string name="descartado_sin_titulo">(sin título)</string>
+
+    <string name="prioridad_etiqueta">Prioridad %1$s</string>
+    <string name="estado_pendiente">Pendiente</string>
+    <string name="estado_completado">Completado el %1$s</string>
+    <string name="estado_cancelado">Cancelado</string>
+    <string name="estado_cancelado_motivo">Cancelado: %1$s</string>
+    <string name="vence_el">Vence el %1$s</string>
+    <string name="ubicacion">Lugar: %1$s</string>
+
+    <string name="error_titulo_vacio">el título es obligatorio</string>
+    <string name="error_titulo_longitud">el título debe tener entre %1$d y %2$d caracteres (tiene %3$d)</string>
+    <string name="error_descripcion_larga">la descripción admite hasta %1$d caracteres (tiene %2$d)</string>
+    <string name="error_fecha_limite">la fecha límite es anterior a la de creación</string>
+    <string name="error_categoria">la categoría «%1$s» no existe</string>
+</resources>
