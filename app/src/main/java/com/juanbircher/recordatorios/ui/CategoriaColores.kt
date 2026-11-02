@@ -12,7 +12,7 @@ val coloresPorCategoria: Map<Categoria, Color> = mapOf(
     DatosSimulados.trabajo to Color(0xFF1565C0),
     DatosSimulados.personal to Color(0xFF6A1B9A),
     DatosSimulados.salud to Color(0xFF2E7D32),
-    DatosSimulados.estudio to Color(0xFFE65100)
+    DatosSimulados.estudio to Color(0xFFCC4000)
 )
 
 /** Color neutro para una categoría que no figura en el Map. */

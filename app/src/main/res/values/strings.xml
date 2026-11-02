@@ -1,18 +1,27 @@
 <resources>
     <string name="app_name">Recordatorios</string>
 
+    <!-- Listado -->
     <string name="titulo_pantalla">Mis recordatorios</string>
     <string name="filtro_estado">Estado</string>
     <string name="filtro_prioridad">Prioridad</string>
     <string name="filtro_prioridad_todas">Todas</string>
     <string name="sin_resultados">No hay recordatorios para este filtro.</string>
+    <string name="crear_recordatorio">Crear recordatorio</string>
+    <string name="cargando_recordatorios">Cargando recordatorios…</string>
+    <string name="listado_vacio">Todavía no existen recordatorios. Creá el primero para empezar.</string>
+    <string name="error_carga">No se pudieron cargar los recordatorios. Intentá de nuevo.</string>
+    <string name="reintentar">Reintentar</string>
 
-    <plurals name="descartados_titulo">
-        <item quantity="one">%d recordatorio descartado por validación</item>
-        <item quantity="other">%d recordatorios descartados por validación</item>
-    </plurals>
-    <string name="descartado_sin_titulo">(sin título)</string>
+    <!-- Simulación de escenarios -->
+    <string name="simular_abrir_menu">Simular escenarios</string>
+    <string name="simular_titulo">Simular escenario</string>
+    <string name="simular_con_datos">Con datos de ejemplo</string>
+    <string name="simular_lista_vacia">Lista vacía</string>
+    <string name="simular_error_cargar">Error al cargar</string>
+    <string name="simular_error_guardar">Error al guardar</string>
 
+    <!-- Tarjeta -->
     <string name="prioridad_etiqueta">Prioridad %1$s</string>
     <string name="estado_pendiente">Pendiente</string>
     <string name="estado_completado">Completado el %1$s</string>
@@ -21,9 +30,41 @@
     <string name="vence_el">Vence el %1$s</string>
     <string name="ubicacion">Lugar: %1$s</string>
 
-    <string name="error_titulo_vacio">el título es obligatorio</string>
-    <string name="error_titulo_longitud">el título debe tener entre %1$d y %2$d caracteres (tiene %3$d)</string>
-    <string name="error_descripcion_larga">la descripción admite hasta %1$d caracteres (tiene %2$d)</string>
-    <string name="error_fecha_limite">la fecha límite es anterior a la de creación</string>
-    <string name="error_categoria">la categoría «%1$s» no existe</string>
+    <!-- Creación -->
+    <string name="titulo_crear">Nuevo recordatorio</string>
+    <string name="campo_titulo">Título (obligatorio)</string>
+    <string name="campo_descripcion">Descripción (opcional)</string>
+    <string name="campo_categoria">Categoría (obligatoria)</string>
+    <string name="campo_prioridad">Prioridad (obligatoria)</string>
+    <string name="contador_caracteres">%1$d de %2$d caracteres</string>
+    <string name="guardar">Guardar</string>
+    <string name="guardando">Guardando…</string>
+    <string name="cancelar">Cancelar</string>
+    <string name="error_guardado">No se pudo guardar el recordatorio. Tus datos siguen acá: tocá Guardar para intentar de nuevo.</string>
+
+    <!-- Detalle -->
+    <string name="titulo_detalle">Detalle del recordatorio</string>
+    <string name="volver">Volver</string>
+    <string name="cargando_detalle">Cargando el recordatorio…</string>
+    <string name="detalle_no_encontrado">Este recordatorio ya no existe.</string>
+    <string name="error_detalle">No se pudo cargar el recordatorio. Intentá de nuevo.</string>
+    <string name="campo_detalle_descripcion">Descripción</string>
+    <string name="campo_detalle_categoria">Categoría</string>
+    <string name="campo_detalle_prioridad">Prioridad</string>
+    <string name="campo_detalle_estado">Estado</string>
+    <string name="campo_detalle_creado">Creado el</string>
+    <string name="campo_detalle_fecha_limite">Fecha límite</string>
+    <string name="campo_detalle_lugar">Lugar</string>
+    <string name="sin_descripcion">Sin descripción</string>
+    <string name="sin_fecha_limite">Sin fecha límite</string>
+    <string name="sin_lugar">Sin lugar asociado</string>
+
+    <!-- Validación -->
+    <string name="error_titulo_vacio">El título es obligatorio.</string>
+    <string name="error_titulo_longitud">El título debe tener entre %1$d y %2$d caracteres (tiene %3$d).</string>
+    <string name="error_descripcion_larga">La descripción admite hasta %1$d caracteres (tiene %2$d).</string>
+    <string name="error_fecha_limite">La fecha límite es anterior a la de creación.</string>
+    <string name="error_categoria">La categoría «%1$s» no existe.</string>
+    <string name="error_categoria_sin_elegir">Elegí una categoría.</string>
+    <string name="error_prioridad_sin_elegir">Elegí una prioridad.</string>
 </resources>

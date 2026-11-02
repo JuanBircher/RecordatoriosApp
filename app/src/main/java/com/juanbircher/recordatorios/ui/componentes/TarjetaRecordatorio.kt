@@ -1,4 +1,4 @@
-package com.juanbircher.recordatorios.ui
+package com.juanbircher.recordatorios.ui.componentes
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,18 +23,19 @@ import com.juanbircher.recordatorios.data.DatosSimulados
 import com.juanbircher.recordatorios.domain.EstadoRecordatorio
 import com.juanbircher.recordatorios.domain.Prioridad
 import com.juanbircher.recordatorios.domain.Recordatorio
+import com.juanbircher.recordatorios.ui.colorDe
 import com.juanbircher.recordatorios.ui.theme.RecordatoriosTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-private val formatoFecha: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+val formatoFecha: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
 /** Tarjeta de un recordatorio: título, categoría, prioridad y estado; los opcionales solo si existen. */
 @Composable
-fun TarjetaRecordatorio(recordatorio: Recordatorio, modifier: Modifier = Modifier) {
+fun TarjetaRecordatorio(recordatorio: Recordatorio, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val activo = recordatorio.estado is EstadoRecordatorio.Pendiente
 
-    Card(modifier = modifier.fillMaxWidth()) {
+    Card(onClick = onClick, modifier = modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -103,8 +104,9 @@ private fun colorPrioridad(prioridad: Prioridad): Color = when (prioridad) {
     Prioridad.Baja -> MaterialTheme.colorScheme.outline
 }
 
+/** Texto del estado; también lo usa la pantalla de detalle. */
 @Composable
-private fun textoEstado(estado: EstadoRecordatorio): String = when (estado) {
+fun textoEstado(estado: EstadoRecordatorio): String = when (estado) {
     EstadoRecordatorio.Pendiente -> stringResource(R.string.estado_pendiente)
     is EstadoRecordatorio.Completado ->
         stringResource(R.string.estado_completado, estado.completadoEl.format(formatoFecha))
@@ -127,6 +129,7 @@ private fun TarjetaRecordatorioPreview() {
                 descripcion = "PDF con capturas y enlace al repositorio",
                 fechaLimite = LocalDate.of(2026, 10, 17)
             ),
+            onClick = {},
             modifier = Modifier.padding(16.dp)
         )
     }

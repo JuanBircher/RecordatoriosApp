@@ -1,6 +1,7 @@
 package com.juanbircher.recordatorios.validation
 
 import com.juanbircher.recordatorios.domain.Categoria
+import com.juanbircher.recordatorios.domain.Prioridad
 import com.juanbircher.recordatorios.domain.Recordatorio
 
 /** Resultado de validar un recordatorio: válido, o inválido con la lista de todos los problemas. */
@@ -16,10 +17,22 @@ sealed interface ErrorValidacion {
     data class DescripcionDemasiadoLarga(val actual: Int) : ErrorValidacion
     data object FechaLimiteAnteriorACreacion : ErrorValidacion
     data class CategoriaInexistente(val id: String) : ErrorValidacion
+    data object CategoriaNoSeleccionada : ErrorValidacion
+    data object PrioridadNoSeleccionada : ErrorValidacion
+}
+
+/** Errores del formulario de creación, uno por campo; `null` significa que el campo es correcto. */
+data class ErroresFormulario(
+    val titulo: ErrorValidacion? = null,
+    val descripcion: ErrorValidacion? = null,
+    val categoria: ErrorValidacion? = null,
+    val prioridad: ErrorValidacion? = null
+) {
+    val esValido: Boolean = titulo == null && descripcion == null && categoria == null && prioridad == null
 }
 
 object ReglasRecordatorio {
-    const val TITULO_MIN = 3
+    const val TITULO_MIN = 4
     const val TITULO_MAX = 60
     const val DESCRIPCION_MAX = 200
 }
@@ -37,6 +50,24 @@ fun validar(recordatorio: Recordatorio, categoriasValidas: Set<Categoria>): Resu
     )
     return if (errores.isEmpty()) ResultadoValidacion.Valido else ResultadoValidacion.Invalido(errores)
 }
+
+/** Valida los campos del formulario antes de que exista un recordatorio: categoría y prioridad pueden faltar. */
+fun validarFormulario(
+    titulo: String,
+    descripcion: String,
+    categoria: Categoria?,
+    prioridad: Prioridad?,
+    categoriasValidas: Set<Categoria>
+): ErroresFormulario = ErroresFormulario(
+    titulo = validarTitulo(titulo),
+    descripcion = validarDescripcion(descripcion),
+    categoria = if (categoria == null) {
+        ErrorValidacion.CategoriaNoSeleccionada
+    } else {
+        validarCategoria(categoria, categoriasValidas)
+    },
+    prioridad = if (prioridad == null) ErrorValidacion.PrioridadNoSeleccionada else null
+)
 
 private fun validarTitulo(titulo: String): ErrorValidacion? {
     val limpio = titulo.trim()

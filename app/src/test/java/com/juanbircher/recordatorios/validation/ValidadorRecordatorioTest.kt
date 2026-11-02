@@ -57,16 +57,16 @@ class ValidadorRecordatorioTest {
     }
 
     @Test
-    fun `titulo respeta los bordes de 3 y 60 caracteres`() {
-        assertEquals(listOf(TituloLongitudInvalida(2)), errores(recordatorio(titulo = "ab")))
-        assertEquals(emptyList<ErrorValidacion>(), errores(recordatorio(titulo = "abc")))
+    fun `titulo respeta los bordes de 4 y 60 caracteres`() {
+        assertEquals(listOf(TituloLongitudInvalida(3)), errores(recordatorio(titulo = "abc")))
+        assertEquals(emptyList<ErrorValidacion>(), errores(recordatorio(titulo = "abcd")))
         assertEquals(emptyList<ErrorValidacion>(), errores(recordatorio(titulo = "a".repeat(60))))
         assertEquals(listOf(TituloLongitudInvalida(61)), errores(recordatorio(titulo = "a".repeat(61))))
     }
 
     @Test
     fun `los espacios de los bordes no cuentan para la longitud del titulo`() {
-        assertEquals(listOf(TituloLongitudInvalida(2)), errores(recordatorio(titulo = "  ab  ")))
+        assertEquals(listOf(TituloLongitudInvalida(3)), errores(recordatorio(titulo = "  abc  ")))
     }
 
     @Test
@@ -106,6 +106,42 @@ class ValidadorRecordatorioTest {
                 CategoriaInexistente("ocio")
             ),
             errores(r)
+        )
+    }
+
+    @Test
+    fun `el formulario sin categoria ni prioridad informa cada campo`() {
+        val errores = validarFormulario("Entregar informe", "", null, null, catalogo)
+
+        assertEquals(
+            ErroresFormulario(
+                categoria = ErrorValidacion.CategoriaNoSeleccionada,
+                prioridad = ErrorValidacion.PrioridadNoSeleccionada
+            ),
+            errores
+        )
+        assertEquals(false, errores.esValido)
+    }
+
+    @Test
+    fun `el formulario completo es valido y la descripcion puede estar vacia`() {
+        val errores = validarFormulario("Entregar informe", "", trabajo, Prioridad.Alta, catalogo)
+
+        assertEquals(ErroresFormulario(), errores)
+        assertEquals(true, errores.esValido)
+    }
+
+    @Test
+    fun `el formulario rechaza titulo corto, descripcion larga y categoria fuera del catalogo`() {
+        val errores = validarFormulario("  abc ", "d".repeat(201), Categoria("ocio", "Ocio"), Prioridad.Baja, catalogo)
+
+        assertEquals(
+            ErroresFormulario(
+                titulo = TituloLongitudInvalida(3),
+                descripcion = DescripcionDemasiadoLarga(201),
+                categoria = CategoriaInexistente("ocio")
+            ),
+            errores
         )
     }
 }
