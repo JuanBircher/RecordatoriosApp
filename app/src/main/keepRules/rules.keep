@@ -1,12 +1,10 @@
-# Add project specific R8 rules here.
-# AGP will combine all keep rule files in src/main/keepRules to pass to R8
+# Reglas de R8 para la versión release.
+# AGP combina todos los archivos de src/main/keepRules y se los pasa a R8.
 #
-# For more details, see
-#   https://d.android.com/r/tools/r8/keep-rules
-
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Gson lee y escribe los DTO por reflexión: si R8 renombrara o quitara sus campos, el servicio y la app
+# dejarían de entenderse. Se conservan los campos de los modelos que viajan por la red (y del estado del
+# servicio simulado, que también se serializa con Gson).
+-keepclassmembers class com.juanbircher.recordatorios.data.remote.** {
+    <fields>;
+}
+-keep class com.juanbircher.recordatorios.data.remote.RecordatorioDto { <init>(...); }

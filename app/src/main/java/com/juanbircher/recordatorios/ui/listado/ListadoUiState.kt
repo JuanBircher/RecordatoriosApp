@@ -1,11 +1,12 @@
 package com.juanbircher.recordatorios.ui.listado
 
+import com.juanbircher.recordatorios.data.ResumenSincronizacion
+import com.juanbircher.recordatorios.data.sync.EstadoSync
 import com.juanbircher.recordatorios.domain.FiltroEstado
 import com.juanbircher.recordatorios.domain.Prioridad
 import com.juanbircher.recordatorios.domain.Recordatorio
 import com.juanbircher.recordatorios.domain.filtrarPorEstado
 import com.juanbircher.recordatorios.domain.filtrarPorPrioridad
-import com.juanbircher.recordatorios.domain.ordenadosPorPrioridad
 
 /**
  * Lo que puede mostrar el listado. Es una jerarquía cerrada: la pantalla resuelve cada caso con un
@@ -19,15 +20,25 @@ sealed interface ListadoUiState {
 
     data object Error : ListadoUiState
 
-    /** [visibles] puede quedar vacía si los filtros elegidos no dejan ningún recordatorio. */
+    /**
+     * [recordatorios] llega ya ordenado según la preferencia elegida: el orden lo decide el repositorio.
+     * [visibles] puede quedar vacía si los filtros elegidos no dejan ningún recordatorio, o si la preferencia
+     * de ocultar completados ([completadosOcultos]) deja la lista sin nada.
+     */
     data class ConDatos(
         val recordatorios: List<Recordatorio>,
         val filtroEstado: FiltroEstado = FiltroEstado.Todos,
-        val filtroPrioridad: Prioridad? = null
+        val filtroPrioridad: Prioridad? = null,
+        val completadosOcultos: Boolean = false
     ) : ListadoUiState {
         val visibles: List<Recordatorio> = recordatorios
             .filtrarPorEstado(filtroEstado)
             .filtrarPorPrioridad(filtroPrioridad)
-            .ordenadosPorPrioridad()
     }
 }
+
+/** Lo que la barra de sincronización necesita mostrar: qué hace el sincronizador y qué quedó pendiente. */
+data class InfoSincronizacion(
+    val estado: EstadoSync = EstadoSync.Inactivo,
+    val resumen: ResumenSincronizacion = ResumenSincronizacion()
+)

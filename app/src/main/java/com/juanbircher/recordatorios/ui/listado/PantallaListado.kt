@@ -13,7 +13,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,15 +41,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.juanbircher.recordatorios.R
 import com.juanbircher.recordatorios.data.DatosSimulados
-import com.juanbircher.recordatorios.data.EscenarioSimulado
+import com.juanbircher.recordatorios.data.remote.ModoRed
 import com.juanbircher.recordatorios.data.cargarRecordatorios
 import com.juanbircher.recordatorios.domain.FiltroEstado
 import com.juanbircher.recordatorios.domain.Prioridad
 import com.juanbircher.recordatorios.ui.FabricasViewModel
 import com.juanbircher.recordatorios.ui.componentes.AccionMensaje
+import com.juanbircher.recordatorios.ui.componentes.BannerSincronizacion
 import com.juanbircher.recordatorios.ui.componentes.MensajeDeEstado
 import com.juanbircher.recordatorios.ui.componentes.TarjetaRecordatorio
 import com.juanbircher.recordatorios.ui.componentes.TipoMensaje
+import com.juanbircher.recordatorios.ui.textoModo
 import com.juanbircher.recordatorios.ui.theme.RecordatoriosTheme
 
 /** Conecta el ViewModel con la pantalla. La recolección se detiene cuando la pantalla no está visible. */
@@ -54,19 +59,27 @@ import com.juanbircher.recordatorios.ui.theme.RecordatoriosTheme
 fun ListadoRuta(
     onCrearRecordatorio: () -> Unit,
     onRecordatorioClick: (Long) -> Unit,
+    onAbrirAjustes: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ListadoViewModel = viewModel(factory = FabricasViewModel.listado)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val sincronizacion by viewModel.sincronizacion.collectAsStateWithLifecycle()
+    val modoServidor by viewModel.modoServidor.collectAsStateWithLifecycle()
 
     PantallaListado(
         uiState = uiState,
+        sincronizacion = sincronizacion,
+        modoServidor = modoServidor,
         onCrearRecordatorio = onCrearRecordatorio,
         onRecordatorioClick = onRecordatorioClick,
         onReintentar = viewModel::onReintentar,
         onFiltroEstado = viewModel::onFiltroEstado,
         onFiltroPrioridad = viewModel::onFiltroPrioridad,
-        onEscenarioSimulado = viewModel::onEscenarioSimulado,
+        onSincronizar = viewModel::onSincronizar,
+        onReintentarFallidos = viewModel::onReintentarFallidos,
+        onAbrirAjustes = onAbrirAjustes,
+        onModoServidor = viewModel::onModoServidor,
         modifier = modifier
     )
 }
@@ -76,12 +89,17 @@ fun ListadoRuta(
 @Composable
 fun PantallaListado(
     uiState: ListadoUiState,
+    sincronizacion: InfoSincronizacion,
+    modoServidor: ModoRed,
     onCrearRecordatorio: () -> Unit,
     onRecordatorioClick: (Long) -> Unit,
     onReintentar: () -> Unit,
     onFiltroEstado: (FiltroEstado) -> Unit,
     onFiltroPrioridad: (Prioridad?) -> Unit,
-    onEscenarioSimulado: (EscenarioSimulado) -> Unit,
+    onSincronizar: () -> Unit,
+    onReintentarFallidos: () -> Unit,
+    onAbrirAjustes: () -> Unit,
+    onModoServidor: (ModoRed) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -89,7 +107,15 @@ fun PantallaListado(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.titulo_pantalla)) },
-                actions = { MenuSimulacion(onEscenarioSimulado) }
+                actions = {
+                    IconButton(onClick = onSincronizar) {
+                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.sincronizar_ahora))
+                    }
+                    IconButton(onClick = onAbrirAjustes) {
+                        Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.abrir_ajustes))
+                    }
+                    MenuSimulacion(modoServidor, onModoServidor)
+                }
             )
         },
         floatingActionButton = {
@@ -100,35 +126,64 @@ fun PantallaListado(
             }
         }
     ) { innerPadding ->
-        when (uiState) {
-            ListadoUiState.Cargando -> MensajeDeEstado(
-                tipo = TipoMensaje.Carga,
-                mensaje = stringResource(R.string.cargando_recordatorios),
-                modifier = Modifier.padding(innerPadding)
+        Column(modifier = Modifier.padding(top = innerPadding.calculateTopPadding())) {
+            BannerSincronizacion(
+                info = sincronizacion,
+                onSincronizar = onSincronizar,
+                onReintentarFallidos = onReintentarFallidos
             )
-
-            ListadoUiState.Vacio -> MensajeDeEstado(
-                tipo = TipoMensaje.Vacio,
-                mensaje = stringResource(R.string.listado_vacio),
-                modifier = Modifier.padding(innerPadding),
-                accion = AccionMensaje(stringResource(R.string.crear_recordatorio), onCrearRecordatorio)
-            )
-
-            ListadoUiState.Error -> MensajeDeEstado(
-                tipo = TipoMensaje.Error,
-                mensaje = stringResource(R.string.error_carga),
-                modifier = Modifier.padding(innerPadding),
-                accion = AccionMensaje(stringResource(R.string.reintentar), onReintentar)
-            )
-
-            is ListadoUiState.ConDatos -> ContenidoListado(
-                estado = uiState,
-                innerPadding = innerPadding,
+            ContenidoSegunEstado(
+                uiState = uiState,
+                innerPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding()),
+                onCrearRecordatorio = onCrearRecordatorio,
                 onRecordatorioClick = onRecordatorioClick,
+                onReintentar = onReintentar,
                 onFiltroEstado = onFiltroEstado,
                 onFiltroPrioridad = onFiltroPrioridad
             )
         }
+    }
+}
+
+/** Resuelve cada estado del listado con un `when` exhaustivo: nunca se muestran dos a la vez. */
+@Composable
+private fun ContenidoSegunEstado(
+    uiState: ListadoUiState,
+    innerPadding: PaddingValues,
+    onCrearRecordatorio: () -> Unit,
+    onRecordatorioClick: (Long) -> Unit,
+    onReintentar: () -> Unit,
+    onFiltroEstado: (FiltroEstado) -> Unit,
+    onFiltroPrioridad: (Prioridad?) -> Unit
+) {
+    when (uiState) {
+        ListadoUiState.Cargando -> MensajeDeEstado(
+            tipo = TipoMensaje.Carga,
+            mensaje = stringResource(R.string.cargando_recordatorios),
+            modifier = Modifier.padding(innerPadding)
+        )
+
+        ListadoUiState.Vacio -> MensajeDeEstado(
+            tipo = TipoMensaje.Vacio,
+            mensaje = stringResource(R.string.listado_vacio),
+            modifier = Modifier.padding(innerPadding),
+            accion = AccionMensaje(stringResource(R.string.crear_recordatorio), onCrearRecordatorio)
+        )
+
+        ListadoUiState.Error -> MensajeDeEstado(
+            tipo = TipoMensaje.Error,
+            mensaje = stringResource(R.string.error_carga),
+            modifier = Modifier.padding(innerPadding),
+            accion = AccionMensaje(stringResource(R.string.reintentar), onReintentar)
+        )
+
+        is ListadoUiState.ConDatos -> ContenidoListado(
+            estado = uiState,
+            innerPadding = innerPadding,
+            onRecordatorioClick = onRecordatorioClick,
+            onFiltroEstado = onFiltroEstado,
+            onFiltroPrioridad = onFiltroPrioridad
+        )
     }
 }
 
@@ -182,7 +237,9 @@ private fun ContenidoListado(
         if (estado.visibles.isEmpty()) {
             item {
                 Text(
-                    text = stringResource(R.string.sin_resultados),
+                    text = stringResource(
+                        if (estado.completadosOcultos) R.string.sin_resultados_completados_ocultos else R.string.sin_resultados
+                    ),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(vertical = 24.dp)
                 )
@@ -206,9 +263,9 @@ private fun FilaDeFiltros(titulo: String, chips: @Composable () -> Unit) {
     }
 }
 
-/** Menú para provocar cada estado sin base de datos ni servicio remoto. */
+/** Menú para elegir cómo responde el servicio simulado y así provocar cada situación de red. */
 @Composable
-private fun MenuSimulacion(onEscenarioSimulado: (EscenarioSimulado) -> Unit) {
+private fun MenuSimulacion(modoActual: ModoRed, onModoServidor: (ModoRed) -> Unit) {
     var abierto by rememberSaveable { mutableStateOf(false) }
 
     Box {
@@ -221,12 +278,16 @@ private fun MenuSimulacion(onEscenarioSimulado: (EscenarioSimulado) -> Unit) {
                 onClick = {},
                 enabled = false
             )
-            EscenarioSimulado.entries.forEach { escenario ->
+            ModoRed.entries.forEach { modo ->
                 DropdownMenuItem(
-                    text = { Text(textoEscenario(escenario)) },
+                    text = { Text(textoModo(modo)) },
+                    leadingIcon = {
+                        // Marca el modo activo con un ícono, además del texto.
+                        if (modo == modoActual) Icon(Icons.Filled.Check, contentDescription = null)
+                    },
                     onClick = {
                         abierto = false
-                        onEscenarioSimulado(escenario)
+                        onModoServidor(modo)
                     }
                 )
             }
@@ -234,19 +295,13 @@ private fun MenuSimulacion(onEscenarioSimulado: (EscenarioSimulado) -> Unit) {
     }
 }
 
-@Composable
-private fun textoEscenario(escenario: EscenarioSimulado): String = when (escenario) {
-    EscenarioSimulado.ConDatos -> stringResource(R.string.simular_con_datos)
-    EscenarioSimulado.ListaVacia -> stringResource(R.string.simular_lista_vacia)
-    EscenarioSimulado.ErrorAlCargar -> stringResource(R.string.simular_error_cargar)
-    EscenarioSimulado.ErrorAlGuardar -> stringResource(R.string.simular_error_guardar)
-}
-
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun PantallaListadoPreview() {
     RecordatoriosTheme(dynamicColor = false) {
         PantallaListado(
+            sincronizacion = InfoSincronizacion(),
+            modoServidor = ModoRed.Normal,
             uiState = ListadoUiState.ConDatos(
                 cargarRecordatorios(DatosSimulados.recordatorios(), DatosSimulados.categorias).validos
             ),
@@ -255,7 +310,10 @@ private fun PantallaListadoPreview() {
             onReintentar = {},
             onFiltroEstado = {},
             onFiltroPrioridad = {},
-            onEscenarioSimulado = {}
+            onSincronizar = {},
+            onReintentarFallidos = {},
+            onAbrirAjustes = {},
+            onModoServidor = {}
         )
     }
 }

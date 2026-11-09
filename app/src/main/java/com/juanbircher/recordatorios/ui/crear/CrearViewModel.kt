@@ -15,16 +15,33 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 import java.time.LocalDate
 
-/** Recibe los eventos del formulario, aplica las validaciones y simula el guardado sin bloquear la interfaz. */
+/**
+ * Recibe los eventos del formulario, aplica las validaciones y guarda sin bloquear la interfaz.
+ *
+ * Si [recordatorioId] no es `null`, el formulario **edita** ese recordatorio: lo carga, y al guardar lo
+ * actualiza conservando lo que el formulario no muestra (estado, fecha de creación, fecha límite, lugar).
+ */
 class CrearViewModel(
     private val repositorio: RecordatoriosRepository,
+    private val recordatorioId: Long? = null,
     private val hoy: () -> LocalDate = LocalDate::now
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
-        CrearUiState(categoriasDisponibles = repositorio.categorias.toList()).validado()
+        CrearUiState(
+            categoriasDisponibles = repositorio.categorias.toList(),
+            esEdicion = recordatorioId != null,
+            cargando = recordatorioId != null
+        ).validado()
     )
     val uiState: StateFlow<CrearUiState> = _uiState.asStateFlow()
+
+    /** El recordatorio que se está editando, tal como estaba al abrir el formulario. */
+    private var original: Recordatorio? = null
+
+    init {
+        if (recordatorioId != null) cargarOriginal(recordatorioId)
+    }
 
     fun onTituloChange(valor: String) = editar { copy(titulo = valor) }
 
@@ -43,21 +60,54 @@ class CrearViewModel(
         _uiState.update { it.copy(envio = EstadoEnvio.Enviando) }
         viewModelScope.launch {
             val resultado = try {
-                repositorio.guardarRecordatorio(
-                    Recordatorio(
-                        id = 0,
-                        titulo = formulario.titulo.trim(),
-                        categoria = categoria,
-                        prioridad = prioridad,
-                        creadoEl = hoy(),
-                        descripcion = formulario.descripcion.trim().ifEmpty { null }
+                val base = original
+                val titulo = formulario.titulo.trim()
+                val descripcion = formulario.descripcion.trim().ifEmpty { null }
+                if (base != null) {
+                    repositorio.actualizarRecordatorio(
+                        base.copy(titulo = titulo, descripcion = descripcion, categoria = categoria, prioridad = prioridad)
                     )
-                )
+                } else {
+                    repositorio.guardarRecordatorio(
+                        Recordatorio(
+                            id = 0,
+                            titulo = titulo,
+                            categoria = categoria,
+                            prioridad = prioridad,
+                            creadoEl = hoy(),
+                            descripcion = descripcion
+                        )
+                    )
+                }
                 EstadoEnvio.Exitoso
             } catch (_: IOException) {
                 EstadoEnvio.Error
             }
             _uiState.update { it.copy(envio = resultado) }
+        }
+    }
+
+    private fun cargarOriginal(id: Long) {
+        viewModelScope.launch {
+            val cargado = try {
+                repositorio.obtenerRecordatorio(id)
+            } catch (_: IOException) {
+                null
+            }
+            original = cargado
+            _uiState.update { actual ->
+                if (cargado == null) {
+                    actual.copy(cargando = false, cargaFallida = true)
+                } else {
+                    actual.copy(
+                        titulo = cargado.titulo,
+                        descripcion = cargado.descripcion.orEmpty(),
+                        categoria = cargado.categoria,
+                        prioridad = cargado.prioridad,
+                        cargando = false
+                    ).validado()
+                }
+            }
         }
     }
 

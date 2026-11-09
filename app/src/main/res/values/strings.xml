@@ -7,19 +7,44 @@
     <string name="filtro_prioridad">Prioridad</string>
     <string name="filtro_prioridad_todas">Todas</string>
     <string name="sin_resultados">No hay recordatorios para este filtro.</string>
+    <string name="sin_resultados_completados_ocultos">No hay recordatorios para mostrar: los completados están ocultos (Ajustes).</string>
     <string name="crear_recordatorio">Crear recordatorio</string>
     <string name="cargando_recordatorios">Cargando recordatorios…</string>
     <string name="listado_vacio">Todavía no existen recordatorios. Creá el primero para empezar.</string>
     <string name="error_carga">No se pudieron cargar los recordatorios. Intentá de nuevo.</string>
     <string name="reintentar">Reintentar</string>
 
-    <!-- Simulación de escenarios -->
-    <string name="simular_abrir_menu">Simular escenarios</string>
-    <string name="simular_titulo">Simular escenario</string>
-    <string name="simular_con_datos">Con datos de ejemplo</string>
-    <string name="simular_lista_vacia">Lista vacía</string>
-    <string name="simular_error_cargar">Error al cargar</string>
-    <string name="simular_error_guardar">Error al guardar</string>
+    <!-- Simulación del servicio remoto -->
+    <string name="simular_abrir_menu">Simular el servicio remoto</string>
+    <string name="simular_titulo">Simular el servicio remoto</string>
+    <string name="modo_normal">Servicio normal</string>
+    <string name="modo_sin_conexion">Sin conexión</string>
+    <string name="modo_timeout">Timeout</string>
+    <string name="modo_error_servidor">Error del servidor (500)</string>
+    <string name="modo_solicitud_invalida">Rechaza lo enviado (400)</string>
+    <string name="sincronizar_ahora">Sincronizar ahora</string>
+    <string name="abrir_ajustes">Ajustes</string>
+
+    <!-- Estado de sincronización -->
+    <string name="sync_sincronizando">Sincronizando…</string>
+    <string name="sync_fallo">No se pudo sincronizar: %1$s. Tus cambios están guardados en el dispositivo.</string>
+    <plurals name="sync_errores">
+        <item quantity="one">%1$d recordatorio con error de envío.</item>
+        <item quantity="other">%1$d recordatorios con error de envío.</item>
+    </plurals>
+    <plurals name="sync_pendientes">
+        <item quantity="one">%1$d recordatorio pendiente de enviar.</item>
+        <item quantity="other">%1$d recordatorios pendientes de enviar.</item>
+    </plurals>
+    <string name="sync_reintentar">Reintentar</string>
+    <string name="causa_sin_conexion">sin conexión</string>
+    <string name="causa_timeout">el servicio tardó demasiado</string>
+    <string name="causa_error_servidor">falla del servicio</string>
+    <string name="causa_solicitud_invalida">el servicio rechazó los datos</string>
+    <string name="causa_respuesta_invalida">respuesta ilegible del servicio</string>
+    <string name="sync_estado_sincronizado">Sincronizado</string>
+    <string name="sync_estado_pendiente">Pendiente de enviar</string>
+    <string name="sync_estado_error">Error al enviar: hace falta reintentar</string>
 
     <!-- Tarjeta -->
     <string name="prioridad_etiqueta">Prioridad %1$s</string>
@@ -32,6 +57,8 @@
 
     <!-- Creación -->
     <string name="titulo_crear">Nuevo recordatorio</string>
+    <string name="titulo_editar">Editar recordatorio</string>
+    <string name="cargando_edicion">Cargando el recordatorio…</string>
     <string name="campo_titulo">Título (obligatorio)</string>
     <string name="campo_descripcion">Descripción (opcional)</string>
     <string name="campo_categoria">Categoría (obligatoria)</string>
@@ -58,6 +85,14 @@
     <string name="sin_descripcion">Sin descripción</string>
     <string name="sin_fecha_limite">Sin fecha límite</string>
     <string name="sin_lugar">Sin lugar asociado</string>
+    <string name="campo_detalle_sincronizacion">Sincronización</string>
+    <string name="editar">Editar</string>
+    <string name="marcar_completado">Marcar como completado</string>
+    <string name="reabrir">Volver a pendiente</string>
+    <string name="eliminar">Eliminar</string>
+    <string name="eliminar_titulo">¿Eliminar este recordatorio?</string>
+    <string name="eliminar_mensaje">Se quita de la lista y, cuando haya conexión, también del servicio.</string>
+    <string name="error_accion">No se pudo guardar el cambio. Intentá de nuevo.</string>
 
     <!-- Validación -->
     <string name="error_titulo_vacio">El título es obligatorio.</string>
@@ -67,4 +102,20 @@
     <string name="error_categoria">La categoría «%1$s» no existe.</string>
     <string name="error_categoria_sin_elegir">Elegí una categoría.</string>
     <string name="error_prioridad_sin_elegir">Elegí una prioridad.</string>
+
+    <!-- Ajustes -->
+    <string name="titulo_ajustes">Ajustes</string>
+    <string name="ajustes_tema">Tema</string>
+    <string name="tema_sistema">Seguir al sistema</string>
+    <string name="tema_claro">Claro</string>
+    <string name="tema_oscuro">Oscuro</string>
+    <string name="ajustes_listado">Listado</string>
+    <string name="ajustes_mostrar_completados">Mostrar recordatorios completados</string>
+    <string name="ajustes_orden">Orden del listado</string>
+    <string name="orden_prioridad">Por prioridad</string>
+    <string name="orden_fecha_limite">Por fecha límite</string>
+    <string name="orden_recientes">Más recientes primero</string>
+    <string name="ajustes_nota">Estas preferencias se guardan en DataStore y siguen aplicadas al cerrar la app. Los recordatorios se guardan en Room.</string>
+    <string name="error_ajustes">No se pudo guardar la preferencia. Intentá de nuevo.</string>
+    <string name="entendido">Entendido</string>
 </resources>

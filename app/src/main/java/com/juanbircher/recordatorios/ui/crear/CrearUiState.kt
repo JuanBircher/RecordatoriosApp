@@ -27,12 +27,19 @@ data class CrearUiState(
     val categoriasDisponibles: List<Categoria> = emptyList(),
     val errores: ErroresFormulario = ErroresFormulario(),
     val mostrarErrores: Boolean = false,
-    val envio: EstadoEnvio = EstadoEnvio.Inactivo
+    val envio: EstadoEnvio = EstadoEnvio.Inactivo,
+    /** `true` cuando el formulario edita un recordatorio existente en lugar de crear uno. */
+    val esEdicion: Boolean = false,
+    /** Mientras se carga el recordatorio a editar, el formulario está bloqueado. */
+    val cargando: Boolean = false,
+    /** No se pudo cargar el recordatorio a editar (no existe o falló la lectura). */
+    val cargaFallida: Boolean = false
 ) {
     val erroresVisibles: ErroresFormulario = if (mostrarErrores) errores else ErroresFormulario()
 
-    /** Mientras se guarda, o una vez guardado, los campos no se pueden modificar. */
-    val editable: Boolean = envio !is EstadoEnvio.Enviando && envio !is EstadoEnvio.Exitoso
+    /** Mientras se carga o se guarda, o una vez guardado, los campos no se pueden modificar. */
+    val editable: Boolean = envio !is EstadoEnvio.Enviando && envio !is EstadoEnvio.Exitoso &&
+        !cargando && !cargaFallida
 
     val puedeGuardar: Boolean = errores.esValido && editable
 }

@@ -18,5 +18,7 @@ data class Recordatorio(
     val descripcion: String? = null,
     val fechaLimite: LocalDate? = null,
     /** Lugar asociado al aviso; se usará cuando la app incorpore ubicación. */
-    val ubicacion: String? = null
+    val ubicacion: String? = null,
+    /** Qué pasó con este recordatorio respecto del servicio remoto. */
+    val sincronizacion: EstadoSincronizacion = EstadoSincronizacion.Sincronizado
 )

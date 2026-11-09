@@ -1,12 +1,16 @@
 package com.juanbircher.recordatorios.ui.listado
 
-import com.juanbircher.recordatorios.data.EscenarioSimulado
+import com.juanbircher.recordatorios.data.ResumenSincronizacion
+import com.juanbircher.recordatorios.data.remote.ModoRed
+import com.juanbircher.recordatorios.data.sync.EstadoSync
 import com.juanbircher.recordatorios.domain.FiltroEstado
 import com.juanbircher.recordatorios.domain.Prioridad
 import com.juanbircher.recordatorios.ui.ReglaDispatcherMain
 import com.juanbircher.recordatorios.ui.RepositorioFalso
+import com.juanbircher.recordatorios.ui.SimuladorFalso
 import com.juanbircher.recordatorios.ui.recordatorioDePrueba
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -25,7 +29,9 @@ class ListadoViewModelTest {
     private val baja = recordatorioDePrueba(1, Prioridad.Baja)
     private val alta = recordatorioDePrueba(2, Prioridad.Alta)
 
-    private fun viewModel(repositorio: RepositorioFalso) = ListadoViewModel(repositorio, repositorio)
+    private val simulador = SimuladorFalso()
+
+    private fun viewModel(repositorio: RepositorioFalso) = ListadoViewModel(repositorio, simulador)
 
     /** La observación no termina nunca, así que se avanza solo lo que tarda la carga. */
     private fun TestScope.esperarCarga() = advanceTimeBy(RepositorioFalso.LATENCIA + 1)
@@ -38,7 +44,7 @@ class ListadoViewModelTest {
         esperarCarga()
 
         val estado = vm.uiState.value as ListadoUiState.ConDatos
-        assertEquals(listOf(alta, baja), estado.visibles)
+        assertEquals("el orden lo decide el repositorio", listOf(baja, alta), estado.visibles)
     }
 
     @Test
@@ -117,14 +123,56 @@ class ListadoViewModelTest {
     }
 
     @Test
-    fun `elegir un escenario lo aplica y vuelve a cargar`() = runTest(main.dispatcher) {
+    fun `elegir un modo del servicio simulado lo aplica sin recargar la lista`() = runTest(main.dispatcher) {
+        val vm = viewModel(RepositorioFalso(listOf(alta)))
+        esperarCarga()
+
+        vm.onModoServidor(ModoRed.SinConexion)
+
+        assertEquals(ModoRed.SinConexion, simulador.modo.value)
+        assertTrue(vm.uiState.value is ListadoUiState.ConDatos)
+    }
+
+    @Test
+    fun `sincronizar y reintentar fallidos se delegan en el repositorio`() = runTest(main.dispatcher) {
         val repositorio = RepositorioFalso(listOf(alta))
         val vm = viewModel(repositorio)
         esperarCarga()
 
-        vm.onEscenarioSimulado(EscenarioSimulado.ErrorAlCargar)
+        vm.onSincronizar()
+        vm.onReintentarFallidos()
+        runCurrent()
 
-        assertEquals(listOf(EscenarioSimulado.ErrorAlCargar), repositorio.escenarios)
-        assertEquals(ListadoUiState.Cargando, vm.uiState.value)
+        assertEquals(1, repositorio.sincronizaciones)
+        assertEquals(1, repositorio.reintentos)
+    }
+
+    @Test
+    fun `expone el estado de sincronizacion y los pendientes`() = runTest(main.dispatcher) {
+        val repositorio = RepositorioFalso(listOf(alta))
+        val vm = viewModel(repositorio)
+        backgroundScope.launch(main.dispatcher) { vm.sincronizacion.collect {} }
+        esperarCarga()
+
+        repositorio.resumen.value = ResumenSincronizacion(pendientes = 2, conError = 1)
+        repositorio.estadoSincronizacion.value = EstadoSync.Sincronizando
+        runCurrent()
+
+        assertEquals(
+            InfoSincronizacion(EstadoSync.Sincronizando, ResumenSincronizacion(2, 1)),
+            vm.sincronizacion.value
+        )
+    }
+
+    @Test
+    fun `si ocultar completados deja la lista sin nada no se dice que no hay recordatorios`() = runTest(main.dispatcher) {
+        val repositorio = RepositorioFalso()
+        repositorio.preferenciasActuales.value = repositorio.preferenciasActuales.value.copy(mostrarCompletados = false)
+        val vm = viewModel(repositorio)
+        esperarCarga()
+
+        val estado = vm.uiState.value as ListadoUiState.ConDatos
+        assertTrue(estado.completadosOcultos)
+        assertTrue(estado.visibles.isEmpty())
     }
 }

@@ -21,9 +21,11 @@ import androidx.compose.ui.unit.dp
 import com.juanbircher.recordatorios.R
 import com.juanbircher.recordatorios.data.DatosSimulados
 import com.juanbircher.recordatorios.domain.EstadoRecordatorio
+import com.juanbircher.recordatorios.domain.EstadoSincronizacion
 import com.juanbircher.recordatorios.domain.Prioridad
 import com.juanbircher.recordatorios.domain.Recordatorio
 import com.juanbircher.recordatorios.ui.colorDe
+import com.juanbircher.recordatorios.ui.textoSincronizacion
 import com.juanbircher.recordatorios.ui.theme.RecordatoriosTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -81,6 +83,17 @@ fun TarjetaRecordatorio(recordatorio: Recordatorio, onClick: () -> Unit, modifie
             recordatorio.ubicacion?.let {
                 Text(text = stringResource(R.string.ubicacion, it), style = MaterialTheme.typography.bodySmall)
             }
+
+            // El estado se dice con texto (no solo con color) para que se entienda sin verlo.
+            Text(
+                text = textoSincronizacion(recordatorio.sincronizacion),
+                style = MaterialTheme.typography.labelSmall,
+                color = when (recordatorio.sincronizacion) {
+                    EstadoSincronizacion.Sincronizado -> MaterialTheme.colorScheme.onSurfaceVariant
+                    EstadoSincronizacion.Pendiente -> MaterialTheme.colorScheme.tertiary
+                    EstadoSincronizacion.Error -> MaterialTheme.colorScheme.error
+                }
+            )
         }
     }
 }

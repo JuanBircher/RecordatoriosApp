@@ -95,7 +95,9 @@ fun PantallaCrear(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.titulo_crear)) },
+                title = {
+                    Text(stringResource(if (uiState.esEdicion) R.string.titulo_editar else R.string.titulo_crear))
+                },
                 navigationIcon = {
                     IconButton(onClick = onCancelar) {
                         Icon(
@@ -116,6 +118,16 @@ fun PantallaCrear(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (uiState.cargando) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text(stringResource(R.string.cargando_edicion))
+                }
+            }
             CampoTexto(
                 valor = uiState.titulo,
                 onValorChange = onTituloChange,
@@ -161,7 +173,11 @@ fun PantallaCrear(
                     .fillMaxWidth()
                     .semantics { liveRegion = LiveRegionMode.Polite }
             ) {
-                if (uiState.envio is EstadoEnvio.Error) ErrorDeGuardado()
+                if (uiState.cargaFallida) {
+                    ErrorDeGuardado(mensaje = stringResource(R.string.error_detalle))
+                } else if (uiState.envio is EstadoEnvio.Error) {
+                    ErrorDeGuardado(mensaje = stringResource(R.string.error_guardado))
+                }
             }
 
             Row(
@@ -189,7 +205,7 @@ fun PantallaCrear(
 }
 
 @Composable
-private fun ErrorDeGuardado(modifier: Modifier = Modifier) {
+private fun ErrorDeGuardado(mensaje: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -203,7 +219,7 @@ private fun ErrorDeGuardado(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(Icons.Filled.Warning, contentDescription = null)
-            Text(text = stringResource(R.string.error_guardado), style = MaterialTheme.typography.bodyMedium)
+            Text(text = mensaje, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

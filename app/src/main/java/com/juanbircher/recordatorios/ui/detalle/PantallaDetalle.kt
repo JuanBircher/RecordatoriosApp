@@ -8,7 +8,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -16,11 +21,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -28,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.juanbircher.recordatorios.R
 import com.juanbircher.recordatorios.data.DatosSimulados
+import com.juanbircher.recordatorios.domain.EstadoRecordatorio
 import com.juanbircher.recordatorios.domain.Prioridad
 import com.juanbircher.recordatorios.domain.Recordatorio
 import com.juanbircher.recordatorios.ui.FabricasViewModel
@@ -36,6 +49,7 @@ import com.juanbircher.recordatorios.ui.componentes.MensajeDeEstado
 import com.juanbircher.recordatorios.ui.componentes.TipoMensaje
 import com.juanbircher.recordatorios.ui.componentes.formatoFecha
 import com.juanbircher.recordatorios.ui.componentes.textoEstado
+import com.juanbircher.recordatorios.ui.textoSincronizacion
 import com.juanbircher.recordatorios.ui.theme.RecordatoriosTheme
 import java.time.LocalDate
 
@@ -43,15 +57,24 @@ import java.time.LocalDate
 @Composable
 fun DetalleRuta(
     onVolver: () -> Unit,
+    onEditar: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DetalleViewModel = viewModel(factory = FabricasViewModel.detalle)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // Una vez eliminado, no queda nada que mostrar: se vuelve al listado.
+    LaunchedEffect(uiState) {
+        if (uiState is DetalleUiState.Eliminado) onVolver()
+    }
+
     PantallaDetalle(
         uiState = uiState,
         onVolver = onVolver,
         onReintentar = viewModel::onReintentar,
+        onEditar = onEditar,
+        onAlternarCompletado = viewModel::onAlternarCompletado,
+        onEliminar = viewModel::onEliminar,
         modifier = modifier
     )
 }
@@ -63,6 +86,9 @@ fun PantallaDetalle(
     uiState: DetalleUiState,
     onVolver: () -> Unit,
     onReintentar: () -> Unit,
+    onEditar: (Long) -> Unit,
+    onAlternarCompletado: () -> Unit,
+    onEliminar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -82,7 +108,7 @@ fun PantallaDetalle(
         }
     ) { innerPadding ->
         when (uiState) {
-            DetalleUiState.Cargando -> MensajeDeEstado(
+            DetalleUiState.Cargando, DetalleUiState.Eliminado -> MensajeDeEstado(
                 tipo = TipoMensaje.Carga,
                 mensaje = stringResource(R.string.cargando_detalle),
                 modifier = Modifier.padding(innerPadding)
@@ -104,6 +130,10 @@ fun PantallaDetalle(
 
             is DetalleUiState.ConDatos -> ContenidoDetalle(
                 recordatorio = uiState.recordatorio,
+                errorAccion = uiState.errorAccion,
+                onEditar = { onEditar(uiState.recordatorio.id) },
+                onAlternarCompletado = onAlternarCompletado,
+                onEliminar = onEliminar,
                 modifier = Modifier
                     .padding(innerPadding)
                     .verticalScroll(rememberScrollState())
@@ -114,7 +144,69 @@ fun PantallaDetalle(
 }
 
 @Composable
-private fun ContenidoDetalle(recordatorio: Recordatorio, modifier: Modifier = Modifier) {
+private fun ContenidoDetalle(
+    recordatorio: Recordatorio,
+    errorAccion: Boolean,
+    onEditar: () -> Unit,
+    onAlternarCompletado: () -> Unit,
+    onEliminar: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var confirmarEliminar by rememberSaveable { mutableStateOf(false) }
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        DatosDelRecordatorio(recordatorio)
+
+        if (errorAccion) {
+            Text(
+                text = stringResource(R.string.error_accion),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = onEditar, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.editar))
+            }
+            Button(onClick = onAlternarCompletado, modifier = Modifier.weight(1f)) {
+                Text(
+                    stringResource(
+                        if (recordatorio.estado is EstadoRecordatorio.Pendiente) R.string.marcar_completado else R.string.reabrir
+                    )
+                )
+            }
+        }
+        OutlinedButton(
+            onClick = { confirmarEliminar = true },
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.eliminar))
+        }
+    }
+
+    if (confirmarEliminar) {
+        AlertDialog(
+            onDismissRequest = { confirmarEliminar = false },
+            title = { Text(stringResource(R.string.eliminar_titulo)) },
+            text = { Text(stringResource(R.string.eliminar_mensaje)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmarEliminar = false
+                    onEliminar()
+                }) { Text(stringResource(R.string.eliminar)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmarEliminar = false }) { Text(stringResource(R.string.cancelar)) }
+            }
+        )
+    }
+}
+
+@Composable
+private fun DatosDelRecordatorio(recordatorio: Recordatorio, modifier: Modifier = Modifier) {
     Card(modifier = modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -143,6 +235,10 @@ private fun ContenidoDetalle(recordatorio: Recordatorio, modifier: Modifier = Mo
             DatoDetalle(
                 etiqueta = stringResource(R.string.campo_detalle_lugar),
                 valor = recordatorio.ubicacion ?: stringResource(R.string.sin_lugar)
+            )
+            DatoDetalle(
+                etiqueta = stringResource(R.string.campo_detalle_sincronizacion),
+                valor = textoSincronizacion(recordatorio.sincronizacion)
             )
         }
     }
@@ -177,7 +273,10 @@ private fun PantallaDetallePreview() {
                 )
             ),
             onVolver = {},
-            onReintentar = {}
+            onReintentar = {},
+            onEditar = {},
+            onAlternarCompletado = {},
+            onEliminar = {}
         )
     }
 }

@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.juanbircher.recordatorios.ui.ajustes.AjustesRuta
 import com.juanbircher.recordatorios.ui.crear.CrearRuta
 import com.juanbircher.recordatorios.ui.detalle.DetalleRuta
 import com.juanbircher.recordatorios.ui.listado.ListadoRuta
@@ -16,10 +17,13 @@ import com.juanbircher.recordatorios.ui.listado.ListadoRuta
 object Rutas {
     const val LISTADO = "listado"
     const val CREAR = "crear"
+    const val AJUSTES = "ajustes"
     const val ARG_RECORDATORIO_ID = "recordatorioId"
     const val DETALLE = "detalle/{$ARG_RECORDATORIO_ID}"
+    const val EDITAR = "editar/{$ARG_RECORDATORIO_ID}"
 
     fun detalle(id: Long) = "detalle/$id"
+    fun editar(id: Long) = "editar/$id"
 }
 
 /**
@@ -35,7 +39,20 @@ fun AppNavHost(
         composable(Rutas.LISTADO) {
             ListadoRuta(
                 onCrearRecordatorio = { navController.siEstaActiva { navigate(Rutas.CREAR) } },
-                onRecordatorioClick = { id -> navController.siEstaActiva { navigate(Rutas.detalle(id)) } }
+                onRecordatorioClick = { id -> navController.siEstaActiva { navigate(Rutas.detalle(id)) } },
+                onAbrirAjustes = { navController.siEstaActiva { navigate(Rutas.AJUSTES) } }
+            )
+        }
+        composable(Rutas.AJUSTES) {
+            AjustesRuta(onVolver = { navController.siEstaActiva { popBackStack() } })
+        }
+        composable(
+            route = Rutas.EDITAR,
+            arguments = listOf(navArgument(Rutas.ARG_RECORDATORIO_ID) { type = NavType.LongType })
+        ) {
+            CrearRuta(
+                onGuardado = { navController.popBackStack() },
+                onCancelar = { navController.siEstaActiva { popBackStack() } }
             )
         }
         composable(Rutas.CREAR) {
@@ -48,7 +65,10 @@ fun AppNavHost(
             route = Rutas.DETALLE,
             arguments = listOf(navArgument(Rutas.ARG_RECORDATORIO_ID) { type = NavType.LongType })
         ) {
-            DetalleRuta(onVolver = { navController.siEstaActiva { popBackStack() } })
+            DetalleRuta(
+                onVolver = { navController.siEstaActiva { popBackStack() } },
+                onEditar = { id -> navController.siEstaActiva { navigate(Rutas.editar(id)) } }
+            )
         }
     }
 }

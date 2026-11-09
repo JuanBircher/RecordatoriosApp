@@ -33,3 +33,11 @@ fun List<Recordatorio>.ordenadosPorPrioridad(): List<Recordatorio> =
         compareByDescending<Recordatorio> { it.prioridad.nivel }
             .thenBy(nullsLast()) { it.fechaLimite }
     )
+
+/** Ordena según el [orden] elegido en las preferencias. */
+fun List<Recordatorio>.ordenadosPor(orden: OrdenListado): List<Recordatorio> = when (orden) {
+    OrdenListado.Prioridad -> ordenadosPorPrioridad()
+    OrdenListado.FechaLimite -> sortedWith(compareBy(nullsLast()) { it.fechaLimite })
+    OrdenListado.MasRecientes ->
+        sortedWith(compareByDescending<Recordatorio> { it.creadoEl }.thenByDescending { it.id })
+}

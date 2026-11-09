@@ -1,9 +1,11 @@
 package com.juanbircher.recordatorios.ui.crear
 
 import com.juanbircher.recordatorios.data.DatosSimulados
+import com.juanbircher.recordatorios.domain.EstadoRecordatorio
 import com.juanbircher.recordatorios.domain.Prioridad
 import com.juanbircher.recordatorios.ui.ReglaDispatcherMain
 import com.juanbircher.recordatorios.ui.RepositorioFalso
+import com.juanbircher.recordatorios.ui.recordatorioDePrueba
 import com.juanbircher.recordatorios.validation.ErrorValidacion
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -158,5 +160,78 @@ class CrearViewModelTest {
         vm.onTituloChange("Llamar al banco hoy")
 
         assertEquals(EstadoEnvio.Inactivo, vm.uiState.value.envio)
+    }
+
+    // ---- modo edición ---------------------------------------------------------------------
+
+    private val existente = recordatorioDePrueba(7).copy(
+        titulo = "Turno con el dentista",
+        descripcion = "Llevar estudios",
+        categoria = DatosSimulados.salud,
+        prioridad = Prioridad.Alta,
+        estado = EstadoRecordatorio.Completado(LocalDate.of(2026, 11, 3)),
+        fechaLimite = LocalDate.of(2026, 11, 20)
+    )
+
+    private fun vmEdicion(repo: RepositorioFalso = RepositorioFalso(listOf(existente))) =
+        CrearViewModel(repo, recordatorioId = 7) { hoy }
+
+    @Test
+    fun `al editar carga los datos del recordatorio en el formulario`() = runTest(main.dispatcher) {
+        val vm = vmEdicion()
+        assertTrue(vm.uiState.value.esEdicion)
+        assertTrue(vm.uiState.value.cargando)
+        assertFalse(vm.uiState.value.puedeGuardar)
+
+        advanceUntilIdle()
+
+        val estado = vm.uiState.value
+        assertFalse(estado.cargando)
+        assertEquals("Turno con el dentista", estado.titulo)
+        assertEquals("Llevar estudios", estado.descripcion)
+        assertEquals(DatosSimulados.salud, estado.categoria)
+        assertEquals(Prioridad.Alta, estado.prioridad)
+        assertTrue(estado.puedeGuardar)
+    }
+
+    @Test
+    fun `al guardar una edicion actualiza el mismo recordatorio y conserva lo que el formulario no toca`() =
+        runTest(main.dispatcher) {
+            val repositorio = RepositorioFalso(listOf(existente))
+            val vm = vmEdicion(repositorio)
+            advanceUntilIdle()
+
+            vm.onTituloChange("Turno con la dentista")
+            vm.onGuardar()
+            advanceUntilIdle()
+
+            assertEquals(EstadoEnvio.Exitoso, vm.uiState.value.envio)
+            assertTrue(repositorio.guardados.isEmpty())
+            val actualizado = repositorio.actualizados.single()
+            assertEquals(7L, actualizado.id)
+            assertEquals("Turno con la dentista", actualizado.titulo)
+            assertEquals(existente.estado, actualizado.estado)
+            assertEquals(existente.creadoEl, actualizado.creadoEl)
+            assertEquals(existente.fechaLimite, actualizado.fechaLimite)
+        }
+
+    @Test
+    fun `si el recordatorio a editar no existe el formulario queda bloqueado con el aviso`() = runTest(main.dispatcher) {
+        val vm = vmEdicion(RepositorioFalso())
+
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.cargaFallida)
+        assertFalse(vm.uiState.value.puedeGuardar)
+    }
+
+    @Test
+    fun `si falla la carga para editar avisa y no permite guardar`() = runTest(main.dispatcher) {
+        val vm = vmEdicion(RepositorioFalso(listOf(existente)).apply { fallaAlObtener = true })
+
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.cargaFallida)
+        assertFalse(vm.uiState.value.puedeGuardar)
     }
 }

@@ -17,19 +17,17 @@ class ListadoUiStateTest {
     ).validos
 
     @Test
-    fun `sin filtros muestra todos los validos ordenados por prioridad`() {
+    fun `sin filtros muestra todos los validos en el orden en que llegan del repositorio`() {
         val visibles = ListadoUiState.ConDatos(recordatorios).visibles
 
-        assertEquals(8, visibles.size)
-        assertEquals(Prioridad.Alta, visibles.first().prioridad)
-        assertEquals(Prioridad.Baja, visibles.last().prioridad)
+        assertEquals(recordatorios, visibles)
     }
 
     @Test
     fun `aplica filtro de estado y prioridad juntos`() {
         val estado = ListadoUiState.ConDatos(recordatorios, FiltroEstado.Pendientes, Prioridad.Alta)
 
-        assertEquals(listOf(7L, 1L), estado.visibles.map { it.id })
+        assertEquals(listOf(1L, 7L), estado.visibles.map { it.id })
     }
 
     @Test
