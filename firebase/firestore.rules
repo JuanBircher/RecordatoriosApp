@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// Reglas de seguridad de Cloud Firestore para RecordatoriosApp.
+//
+// La autorización vive acá, en el servicio, y no en la app: aunque alguien modifique la app o llame
+// directamente a la API, una cuenta no puede leer ni escribir los recordatorios de otra. Ocultar un
+// botón en la interfaz no protege nada; estas reglas sí.
+//
+// Estructura: users/{uid}/reminders/{claveCliente}. Todo lo que no esté permitido explícitamente queda
+// denegado (Firestore deniega por omisión).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // La sesión tiene que pertenecer a la misma cuenta dueña de la colección.
+    function esDuenio(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function textoOpcional(datos, campo, maximo) {
+      return !(campo in datos) || (datos[campo] is string && datos[campo].size() <= maximo);
+    }
+
+    function fechaIso(valor) {
+      return valor is string && valor.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    // Validación en el servidor del documento que se quiere escribir. Es un poco más permisiva que la de
+    // la app (ValidadorRecordatorio): su función es rechazar datos malformados o campos extra, no
+    // duplicar cada regla de negocio. Así un recordatorio válido para la app nunca queda rechazado.
+    function esRecordatorioValido(datos) {
+      return datos.keys().hasOnly(['titulo', 'descripcion', 'categoriaId', 'prioridad', 'estado',
+                                   'completadoEl', 'motivoCancelacion', 'creadoEl', 'fechaLimite',
+                                   'ubicacion', 'actualizadoEl'])
+        && datos.keys().hasAll(['titulo', 'categoriaId', 'prioridad', 'estado', 'creadoEl', 'actualizadoEl'])
+        && datos.titulo is string && datos.titulo.size() >= 1 && datos.titulo.size() <= 100
+        && datos.categoriaId is string && datos.categoriaId.size() >= 1 && datos.categoriaId.size() <= 40
+        && datos.prioridad in ['ALTA', 'MEDIA', 'BAJA']
+        && datos.estado in ['PENDIENTE', 'COMPLETADO', 'CANCELADO']
+        && fechaIso(datos.creadoEl)
+        && (!('completadoEl' in datos) || fechaIso(datos.completadoEl))
+        && (!('fechaLimite' in datos) || fechaIso(datos.fechaLimite))
+        && textoOpcional(datos, 'descripcion', 500)
+        && textoOpcional(datos, 'motivoCancelacion', 300)
+        && textoOpcional(datos, 'ubicacion', 200)
+        // La fecha de modificación la pone el servidor (serverTimestamp): la app no puede inventarla.
+        && datos.actualizadoEl == request.time;
+    }
+
+    match /users/{userId}/reminders/{reminderId} {
+      allow read, delete: if esDuenio(userId);
+      allow create, update: if esDuenio(userId) && esRecordatorioValido(request.resource.data);
+    }
+  }
+}

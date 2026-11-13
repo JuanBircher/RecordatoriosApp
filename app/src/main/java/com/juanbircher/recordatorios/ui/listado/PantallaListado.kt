@@ -2,7 +2,6 @@ package com.juanbircher.recordatorios.ui.listado
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,12 +12,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -30,9 +25,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -41,7 +33,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.juanbircher.recordatorios.R
 import com.juanbircher.recordatorios.data.DatosSimulados
-import com.juanbircher.recordatorios.data.remote.ModoRed
 import com.juanbircher.recordatorios.data.cargarRecordatorios
 import com.juanbircher.recordatorios.domain.FiltroEstado
 import com.juanbircher.recordatorios.domain.Prioridad
@@ -51,7 +42,6 @@ import com.juanbircher.recordatorios.ui.componentes.BannerSincronizacion
 import com.juanbircher.recordatorios.ui.componentes.MensajeDeEstado
 import com.juanbircher.recordatorios.ui.componentes.TarjetaRecordatorio
 import com.juanbircher.recordatorios.ui.componentes.TipoMensaje
-import com.juanbircher.recordatorios.ui.textoModo
 import com.juanbircher.recordatorios.ui.theme.RecordatoriosTheme
 
 /** Conecta el ViewModel con la pantalla. La recolección se detiene cuando la pantalla no está visible. */
@@ -65,12 +55,10 @@ fun ListadoRuta(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val sincronizacion by viewModel.sincronizacion.collectAsStateWithLifecycle()
-    val modoServidor by viewModel.modoServidor.collectAsStateWithLifecycle()
 
     PantallaListado(
         uiState = uiState,
         sincronizacion = sincronizacion,
-        modoServidor = modoServidor,
         onCrearRecordatorio = onCrearRecordatorio,
         onRecordatorioClick = onRecordatorioClick,
         onReintentar = viewModel::onReintentar,
@@ -79,7 +67,6 @@ fun ListadoRuta(
         onSincronizar = viewModel::onSincronizar,
         onReintentarFallidos = viewModel::onReintentarFallidos,
         onAbrirAjustes = onAbrirAjustes,
-        onModoServidor = viewModel::onModoServidor,
         modifier = modifier
     )
 }
@@ -90,7 +77,6 @@ fun ListadoRuta(
 fun PantallaListado(
     uiState: ListadoUiState,
     sincronizacion: InfoSincronizacion,
-    modoServidor: ModoRed,
     onCrearRecordatorio: () -> Unit,
     onRecordatorioClick: (Long) -> Unit,
     onReintentar: () -> Unit,
@@ -99,7 +85,6 @@ fun PantallaListado(
     onSincronizar: () -> Unit,
     onReintentarFallidos: () -> Unit,
     onAbrirAjustes: () -> Unit,
-    onModoServidor: (ModoRed) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -114,7 +99,6 @@ fun PantallaListado(
                     IconButton(onClick = onAbrirAjustes) {
                         Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.abrir_ajustes))
                     }
-                    MenuSimulacion(modoServidor, onModoServidor)
                 }
             )
         },
@@ -263,45 +247,12 @@ private fun FilaDeFiltros(titulo: String, chips: @Composable () -> Unit) {
     }
 }
 
-/** Menú para elegir cómo responde el servicio simulado y así provocar cada situación de red. */
-@Composable
-private fun MenuSimulacion(modoActual: ModoRed, onModoServidor: (ModoRed) -> Unit) {
-    var abierto by rememberSaveable { mutableStateOf(false) }
-
-    Box {
-        IconButton(onClick = { abierto = true }) {
-            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.simular_abrir_menu))
-        }
-        DropdownMenu(expanded = abierto, onDismissRequest = { abierto = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.simular_titulo)) },
-                onClick = {},
-                enabled = false
-            )
-            ModoRed.entries.forEach { modo ->
-                DropdownMenuItem(
-                    text = { Text(textoModo(modo)) },
-                    leadingIcon = {
-                        // Marca el modo activo con un ícono, además del texto.
-                        if (modo == modoActual) Icon(Icons.Filled.Check, contentDescription = null)
-                    },
-                    onClick = {
-                        abierto = false
-                        onModoServidor(modo)
-                    }
-                )
-            }
-        }
-    }
-}
-
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun PantallaListadoPreview() {
     RecordatoriosTheme(dynamicColor = false) {
         PantallaListado(
             sincronizacion = InfoSincronizacion(),
-            modoServidor = ModoRed.Normal,
             uiState = ListadoUiState.ConDatos(
                 cargarRecordatorios(DatosSimulados.recordatorios(), DatosSimulados.categorias).validos
             ),
@@ -312,8 +263,7 @@ private fun PantallaListadoPreview() {
             onFiltroPrioridad = {},
             onSincronizar = {},
             onReintentarFallidos = {},
-            onAbrirAjustes = {},
-            onModoServidor = {}
+            onAbrirAjustes = {}
         )
     }
 }

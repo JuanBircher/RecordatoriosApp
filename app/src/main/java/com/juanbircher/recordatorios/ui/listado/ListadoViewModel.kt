@@ -3,8 +3,6 @@ package com.juanbircher.recordatorios.ui.listado
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.juanbircher.recordatorios.data.RecordatoriosRepository
-import com.juanbircher.recordatorios.data.remote.ModoRed
-import com.juanbircher.recordatorios.data.remote.SimuladorServidor
 import com.juanbircher.recordatorios.domain.FiltroEstado
 import com.juanbircher.recordatorios.domain.Prioridad
 import com.juanbircher.recordatorios.domain.Recordatorio
@@ -22,10 +20,7 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 
 /** Estado y eventos del listado. Depende de interfaces: no conoce de dónde salen los datos. */
-class ListadoViewModel(
-    private val repositorio: RecordatoriosRepository,
-    private val simulador: SimuladorServidor
-) : ViewModel() {
+class ListadoViewModel(private val repositorio: RecordatoriosRepository) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ListadoUiState>(ListadoUiState.Cargando)
     val uiState: StateFlow<ListadoUiState> = _uiState.asStateFlow()
@@ -36,9 +31,6 @@ class ListadoViewModel(
         repositorio.observarResumenSincronizacion()
     ) { estado, resumen -> InfoSincronizacion(estado, resumen) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), InfoSincronizacion())
-
-    /** Cómo responde el servicio simulado en este momento. */
-    val modoServidor: StateFlow<ModoRed> = simulador.modo
 
     private var observacion: Job? = null
 
@@ -53,15 +45,22 @@ class ListadoViewModel(
     fun onFiltroPrioridad(prioridad: Prioridad?) = actualizarDatos { copy(filtroPrioridad = prioridad) }
 
     /** Pide sincronizar ya. Un problema de red no llega acá: queda en [sincronizacion]. */
-    fun onSincronizar() {
-        viewModelScope.launch { repositorio.sincronizar() }
-    }
+    fun onSincronizar() = enSegundoPlano { repositorio.sincronizar() }
 
-    fun onReintentarFallidos() {
-        viewModelScope.launch { repositorio.reintentarFallidos() }
-    }
+    fun onReintentarFallidos() = enSegundoPlano { repositorio.reintentarFallidos() }
 
-    fun onModoServidor(modo: ModoRed) = simulador.fijar(modo)
+    /**
+     * Los fallos de red ya se ven en [sincronizacion]. Un fallo del almacenamiento local, o que la sesión
+     * terminara justo antes del toque, tampoco debe cerrar la app: los datos siguen en Room.
+     */
+    private fun enSegundoPlano(accion: suspend () -> Unit) {
+        viewModelScope.launch {
+            try {
+                accion()
+            } catch (_: IOException) {
+            }
+        }
+    }
 
     private fun cargar() {
         observacion?.cancel()

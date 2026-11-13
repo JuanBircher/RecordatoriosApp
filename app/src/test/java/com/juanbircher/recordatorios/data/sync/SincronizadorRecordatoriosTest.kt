@@ -1,5 +1,7 @@
 package com.juanbircher.recordatorios.data.sync
 
+import com.juanbircher.recordatorios.data.ANA
+import com.juanbircher.recordatorios.data.BETO
 import com.juanbircher.recordatorios.data.DaoFalso
 import com.juanbircher.recordatorios.data.DatosSimulados
 import com.juanbircher.recordatorios.data.RemotoFalso
@@ -14,6 +16,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,47 +26,97 @@ class SincronizadorRecordatoriosTest {
 
     private val dao = DaoFalso()
     private val remoto = RemotoFalso()
-    private val sincronizador = SincronizadorRecordatorios(dao, remoto, DatosSimulados.categorias)
 
-    private suspend fun fila(clave: String) = dao.obtenerPorClave(clave)!!
+    /** Sesión activa que ve el sincronizador; `null` = nadie ingresó. */
+    private var sesion: String? = ANA
+    private val sincronizador = SincronizadorRecordatorios(dao, remoto, DatosSimulados.categorias, uidActual = { sesion })
+
+    private suspend fun fila(clave: String, uid: String = ANA) = dao.obtenerPorClave(uid, clave)!!
 
     // ---- envío de pendientes ----------------------------------------------------------------
 
     @Test
-    fun `un recordatorio pendiente se crea en el servicio y queda sincronizado con su id remoto`() = runTest {
+    fun `un recordatorio pendiente se guarda en la coleccion de su cuenta y queda sincronizado`() = runTest {
         dao.insertar(entidadDePrueba("a"))
 
         val resultado = sincronizador.sincronizar()
 
         assertEquals(ResultadoSincronizacion.Completa(enviados = 1, recibidos = 0), resultado)
         assertEquals(EstadoSincronizacion.Sincronizado.name, fila("a").sincronizacion)
-        assertEquals(100L, fila("a").idRemoto)
-        assertEquals(1, remoto.servidor.size)
+        assertTrue(fila("a").enRemoto)
+        assertEquals(setOf("a"), remoto.de(ANA).keys)
     }
 
     @Test
-    fun `un cambio sobre un recordatorio ya creado se envia como actualizacion, no como alta`() = runTest {
+    fun `un cambio sobre un recordatorio ya enviado reemplaza el mismo documento`() = runTest {
         dao.insertar(entidadDePrueba("a"))
         sincronizador.sincronizar()
         dao.actualizar(fila("a").copy(titulo = "Título corregido", sincronizacion = EstadoSincronizacion.Pendiente.name))
 
         sincronizador.sincronizar()
 
-        assertEquals(1, remoto.llamadasCrear)
-        assertEquals(1, remoto.llamadasActualizar)
-        assertEquals("Título corregido", remoto.servidor.single().titulo)
+        assertEquals(2, remoto.llamadasGuardar)
+        assertEquals("Título corregido", remoto.de(ANA).values.single().titulo)
         assertEquals(EstadoSincronizacion.Sincronizado.name, fila("a").sincronizacion)
     }
 
     @Test
-    fun `si se actualiza un recordatorio que el servicio ya no tiene, se vuelve a crear sin duplicar`() = runTest {
-        dao.insertar(entidadDePrueba("a", sincronizacion = EstadoSincronizacion.Pendiente, idRemoto = 77))
+    fun `solo se envian los pendientes de la cuenta activa`() = runTest {
+        dao.insertar(entidadDePrueba("de-ana", uid = ANA))
+        dao.insertar(entidadDePrueba("de-beto", uid = BETO))
 
         sincronizador.sincronizar()
 
-        assertEquals(1, remoto.servidor.size)
-        assertEquals(EstadoSincronizacion.Sincronizado.name, fila("a").sincronizacion)
-        assertEquals(remoto.servidor.single().id, fila("a").idRemoto)
+        assertEquals(setOf("de-ana"), remoto.de(ANA).keys)
+        assertTrue("lo de otra cuenta no viaja con esta identidad", remoto.de(BETO).isEmpty())
+        assertEquals(EstadoSincronizacion.Pendiente.name, fila("de-beto", BETO).sincronizacion)
+    }
+
+    // ---- sesión -----------------------------------------------------------------------------
+
+    @Test
+    fun `sin sesion no se llama al servicio y los pendientes se conservan`() = runTest {
+        sesion = null
+        dao.insertar(entidadDePrueba("a"))
+
+        val resultado = sincronizador.sincronizar()
+
+        assertEquals(ResultadoSincronizacion.SinSesion, resultado)
+        assertEquals(0, remoto.llamadasGuardar + remoto.llamadasListar)
+        assertEquals(EstadoSincronizacion.Pendiente.name, fila("a").sincronizacion)
+    }
+
+    @Test
+    fun `NoAutorizado corta la corrida y deja el recordatorio pendiente sin gastar intentos`() = runTest {
+        dao.insertar(entidadDePrueba("a"))
+        dao.insertar(entidadDePrueba("b"))
+        remoto.denegados += ANA
+
+        val resultado = sincronizador.sincronizar()
+
+        assertEquals(ResultadoSincronizacion.Incompleta(CausaFallo.NoAutorizado), resultado)
+        assertEquals(1, remoto.llamadasGuardar)
+        assertEquals(0, remoto.llamadasListar)
+        assertEquals(EstadoSincronizacion.Pendiente.name, fila("a").sincronizacion)
+        assertEquals(0, fila("a").intentos)
+        assertEquals(EstadoSync.Fallo(CausaFallo.NoAutorizado), sincronizador.estado.value)
+    }
+
+    @Test
+    fun `si la sesion cambia durante la corrida no se sigue enviando con la identidad anterior`() = runTest {
+        dao.insertar(entidadDePrueba("a"))
+        dao.insertar(entidadDePrueba("b"))
+        remoto.retrasoMs = 500
+
+        val corrida = async { sincronizador.sincronizar() }
+        testScheduler.advanceTimeBy(100)
+        sesion = BETO
+        val resultado = corrida.await()
+
+        assertEquals(ResultadoSincronizacion.SinSesion, resultado)
+        assertEquals("solo el envío que ya estaba en curso", 1, remoto.llamadasGuardar)
+        assertEquals(0, remoto.llamadasListar)
+        assertEquals(EstadoSincronizacion.Pendiente.name, fila("b").sincronizacion)
     }
 
     // ---- fallos -----------------------------------------------------------------------------
@@ -91,27 +144,27 @@ class SincronizadorRecordatoriosTest {
         val resultado = sincronizador.sincronizar()
 
         assertTrue(resultado is ResultadoSincronizacion.Completa)
-        assertEquals(1, remoto.servidor.size)
+        assertEquals(1, remoto.de(ANA).size)
         assertEquals(EstadoSync.Inactivo, sincronizador.estado.value)
         assertEquals(EstadoSincronizacion.Sincronizado.name, fila("a").sincronizacion)
     }
 
     @Test
-    fun `una creacion confirmada cuyo resultado se perdio se reenvia con la misma clave y no duplica`() = runTest {
-        // El servicio recibió la creación, pero la app no llegó a anotar la respuesta (cierre, corte...).
+    fun `una escritura que llego al servicio pero cuya confirmacion se perdio se reenvia sin duplicar`() = runTest {
+        // El servicio recibió el documento, pero la app no llegó a anotar la respuesta (cierre, corte...).
         dao.insertar(entidadDePrueba("a"))
-        remoto.crear("a", fila("a").aDto())
+        remoto.guardar(ANA, "a", fila("a").aDto())
 
         sincronizador.sincronizar()
 
-        assertEquals(1, remoto.servidor.size)
+        assertEquals(1, remoto.de(ANA).size)
         assertEquals(EstadoSincronizacion.Sincronizado.name, fila("a").sincronizacion)
     }
 
     @Test
     fun `una solicitud invalida deja el recordatorio en error y no se reintenta sola`() = runTest {
         dao.insertar(entidadDePrueba("a"))
-        remoto.fallo = ResultadoRemoto.SolicitudInvalida(400)
+        remoto.fallo = ResultadoRemoto.SolicitudInvalida("INVALID_ARGUMENT")
 
         val resultado = sincronizador.sincronizar()
 
@@ -120,18 +173,18 @@ class SincronizadorRecordatoriosTest {
 
         remoto.fallo = null
         sincronizador.sincronizar()
-        assertEquals("sigue en error hasta que la persona pida reintentar", 0, remoto.servidor.size)
-        assertEquals(1, remoto.llamadasCrear)
+        assertTrue("sigue en error hasta que la persona pida reintentar", remoto.de(ANA).isEmpty())
+        assertEquals(1, remoto.llamadasGuardar)
 
-        dao.reencolarErrores()
+        dao.reencolarErrores(ANA)
         sincronizador.sincronizar()
-        assertEquals(1, remoto.servidor.size)
+        assertEquals(1, remoto.de(ANA).size)
     }
 
     @Test
     fun `tras agotar los intentos por fallos transitorios el recordatorio pasa a error`() = runTest {
         dao.insertar(entidadDePrueba("a"))
-        remoto.fallo = ResultadoRemoto.ErrorServidor(500)
+        remoto.fallo = ResultadoRemoto.ErrorServidor("UNAVAILABLE")
 
         repeat(3) { sincronizador.sincronizar() }
 
@@ -146,7 +199,7 @@ class SincronizadorRecordatoriosTest {
 
         sincronizador.sincronizar()
 
-        assertEquals(1, remoto.llamadasCrear)
+        assertEquals(1, remoto.llamadasGuardar)
     }
 
     @Test
@@ -167,8 +220,8 @@ class SincronizadorRecordatoriosTest {
 
         val resultados = (1..5).map { async { sincronizador.sincronizar() } }.awaitAll()
 
-        assertEquals(1, remoto.llamadasCrear)
-        assertEquals(1, remoto.servidor.size)
+        assertEquals(1, remoto.llamadasGuardar)
+        assertEquals(1, remoto.de(ANA).size)
         assertEquals(4, resultados.count { it == ResultadoSincronizacion.YaEnCurso })
     }
 
@@ -183,7 +236,7 @@ class SincronizadorRecordatoriosTest {
         corrida.await()
 
         assertEquals(EstadoSincronizacion.Pendiente.name, fila("a").sincronizacion)
-        assertEquals(100L, fila("a").idRemoto)
+        assertTrue("ya existe en el servicio: un borrado posterior necesita red", fila("a").enRemoto)
     }
 
     // ---- borrado ----------------------------------------------------------------------------
@@ -194,7 +247,7 @@ class SincronizadorRecordatoriosTest {
 
         sincronizador.sincronizar()
 
-        assertNull(dao.obtenerPorClave("a"))
+        assertNull(dao.obtenerPorClave(ANA, "a"))
         assertEquals(0, remoto.llamadasEliminar)
     }
 
@@ -206,14 +259,14 @@ class SincronizadorRecordatoriosTest {
 
         sincronizador.sincronizar()
 
-        assertEquals(0, remoto.servidor.size)
-        assertNull(dao.obtenerPorClave("a"))
+        assertTrue(remoto.de(ANA).isEmpty())
+        assertNull(dao.obtenerPorClave(ANA, "a"))
     }
 
     @Test
     fun `si el borrado falla, la marca de borrado se conserva para reintentar`() = runTest {
-        dao.insertar(entidadDePrueba("a", sincronizacion = EstadoSincronizacion.Pendiente, idRemoto = 100, eliminado = true))
-        remoto.servidor += dtoDePrueba(id = 100, clave = "a")
+        dao.insertar(entidadDePrueba("a", enRemoto = true, eliminado = true))
+        remoto.agregar(dtoDePrueba(clave = "a"))
         remoto.fallo = ResultadoRemoto.SinConexion
 
         sincronizador.sincronizar()
@@ -225,21 +278,31 @@ class SincronizadorRecordatoriosTest {
     // ---- descarga ---------------------------------------------------------------------------
 
     @Test
-    fun `los recordatorios del servicio se transforman y se guardan en la base local`() = runTest {
-        remoto.servidor += dtoDePrueba(id = 500, clave = "remota-1")
+    fun `lo que la cuenta tiene en el servicio se transforma y se guarda en Room a su nombre`() = runTest {
+        remoto.agregar(dtoDePrueba(clave = "remota-1"))
 
         val resultado = sincronizador.sincronizar()
 
         assertEquals(ResultadoSincronizacion.Completa(enviados = 0, recibidos = 1), resultado)
         val guardado = fila("remota-1")
         assertEquals("Recordatorio del servidor", guardado.titulo)
-        assertEquals(500L, guardado.idRemoto)
+        assertEquals(ANA, guardado.uid)
+        assertTrue(guardado.enRemoto)
         assertEquals(EstadoSincronizacion.Sincronizado.name, guardado.sincronizacion)
     }
 
     @Test
+    fun `solo se descarga la coleccion de la cuenta activa`() = runTest {
+        remoto.agregar(dtoDePrueba(clave = "de-beto"), uid = BETO)
+
+        sincronizador.sincronizar()
+
+        assertTrue(dao.filas.value.isEmpty())
+    }
+
+    @Test
     fun `sincronizar dos veces seguidas no duplica lo descargado`() = runTest {
-        remoto.servidor += dtoDePrueba(id = 500, clave = "remota-1")
+        remoto.agregar(dtoDePrueba(clave = "remota-1"))
 
         sincronizador.sincronizar()
         sincronizador.sincronizar()
@@ -249,9 +312,9 @@ class SincronizadorRecordatoriosTest {
 
     @Test
     fun `un dato invalido del servicio se descarta y no llega a la base`() = runTest {
-        remoto.servidor += dtoDePrueba(id = 501, clave = "sin-titulo", titulo = "ab")
-        remoto.servidor += dtoDePrueba(id = 502, clave = "categoria-rara", categoriaId = "otra")
-        remoto.servidor += dtoDePrueba(id = 503, clave = "valida")
+        remoto.agregar(dtoDePrueba(clave = "sin-titulo", titulo = "ab"))
+        remoto.agregar(dtoDePrueba(clave = "categoria-rara", categoriaId = "otra"))
+        remoto.agregar(dtoDePrueba(clave = "valida"))
 
         sincronizador.sincronizar()
 
@@ -260,25 +323,65 @@ class SincronizadorRecordatoriosTest {
 
     @Test
     fun `la descarga no pisa un cambio local pendiente`() = runTest {
-        dao.insertar(entidadDePrueba("a", titulo = "Versión local", sincronizacion = EstadoSincronizacion.Sincronizado, idRemoto = 100))
-        remoto.servidor += dtoDePrueba(id = 100, clave = "a", titulo = "Versión del servicio")
-        dao.actualizar(fila("a").copy(titulo = "Versión local editada", sincronizacion = EstadoSincronizacion.Pendiente.name))
-        remoto.fallo = null
+        dao.insertar(entidadDePrueba("a", titulo = "Versión local editada", enRemoto = true))
+        remoto.agregar(dtoDePrueba(clave = "a", titulo = "Versión del servicio"))
 
         sincronizador.sincronizar()
 
-        assertEquals("el cambio local gana y se envía", "Versión local editada", remoto.servidor.single().titulo)
+        assertEquals("el cambio local gana y se envía", "Versión local editada", remoto.de(ANA)["a"]!!.titulo)
     }
 
     @Test
-    fun `la descarga actualiza un recordatorio sincronizado que cambio en el servicio`() = runTest {
-        dao.insertar(entidadDePrueba("a", titulo = "Título viejo", sincronizacion = EstadoSincronizacion.Sincronizado, idRemoto = 100))
-        remoto.servidor += dtoDePrueba(id = 100, clave = "a", titulo = "Título nuevo del servicio")
+    fun `la descarga actualiza un recordatorio sincronizado que cambio en otro dispositivo`() = runTest {
+        dao.insertar(entidadDePrueba("a", titulo = "Título viejo", sincronizacion = EstadoSincronizacion.Sincronizado, enRemoto = true))
+        remoto.agregar(dtoDePrueba(clave = "a", titulo = "Título nuevo del servicio"))
 
         sincronizador.sincronizar()
 
         assertEquals("Título nuevo del servicio", fila("a").titulo)
         assertEquals("conserva el id local", 1L, fila("a").id)
+    }
+
+    @Test
+    fun `lo borrado desde otro dispositivo tambien se quita de este`() = runTest {
+        dao.insertar(entidadDePrueba("borrado-afuera", sincronizacion = EstadoSincronizacion.Sincronizado, enRemoto = true))
+        dao.insertar(entidadDePrueba("sigue", sincronizacion = EstadoSincronizacion.Sincronizado, enRemoto = true))
+        remoto.agregar(fila("sigue").aDto())
+
+        val resultado = sincronizador.sincronizar()
+
+        assertEquals(listOf("sigue"), dao.filas.value.map { it.claveCliente })
+        assertEquals(ResultadoSincronizacion.Completa(enviados = 0, recibidos = 1), resultado)
+    }
+
+    @Test
+    fun `un cambio local pendiente no se borra aunque el servicio ya no lo tenga`() = runTest {
+        dao.insertar(entidadDePrueba("editado-aca", enRemoto = true))
+
+        sincronizador.sincronizar()
+
+        assertTrue("gana el cambio local: se vuelve a subir", "editado-aca" in remoto.de(ANA))
+        assertFalse(fila("editado-aca").eliminado)
+    }
+
+    @Test
+    fun `si falla la descarga no se borra nada local`() = runTest {
+        dao.insertar(entidadDePrueba("a", sincronizacion = EstadoSincronizacion.Sincronizado, enRemoto = true))
+        remoto.resultadoListar = ResultadoRemoto.ErrorServidor("UNAVAILABLE")
+
+        sincronizador.sincronizar()
+
+        assertEquals(listOf("a"), dao.filas.value.map { it.claveCliente })
+    }
+
+    @Test
+    fun `un documento invalido en el servicio no hace borrar la copia local valida`() = runTest {
+        dao.insertar(entidadDePrueba("a", sincronizacion = EstadoSincronizacion.Sincronizado, enRemoto = true))
+        remoto.agregar(dtoDePrueba(clave = "a", titulo = null))
+
+        sincronizador.sincronizar()
+
+        assertEquals(listOf("a"), dao.filas.value.map { it.claveCliente })
     }
 
     @Test
@@ -288,5 +391,51 @@ class SincronizadorRecordatoriosTest {
         val resultado = sincronizador.sincronizar()
 
         assertEquals(ResultadoSincronizacion.Incompleta(CausaFallo.RespuestaInvalida), resultado)
+    }
+
+    // ---- hallazgos de la revisión ----------------------------------------------------------
+
+    @Test
+    fun `si otra cuenta pide sincronizar durante una corrida, al terminar se atiende la cuenta nueva`() = runTest {
+        dao.insertar(entidadDePrueba("de-ana", uid = ANA))
+        dao.insertar(entidadDePrueba("de-beto", uid = BETO))
+        remoto.retrasoMs = 500
+
+        val corridaDeAna = async { sincronizador.sincronizar() }
+        testScheduler.advanceTimeBy(100)
+        sesion = BETO
+        assertEquals(ResultadoSincronizacion.YaEnCurso, sincronizador.sincronizar())
+        corridaDeAna.await()
+
+        assertTrue("el pedido de Beto no se pierde", "de-beto" in remoto.de(BETO))
+    }
+
+    @Test
+    fun `un envio que vencio por tiempo pudo llegar, asi que borrarlo tambien se pide al servicio`() = runTest {
+        dao.insertar(entidadDePrueba("a"))
+        remoto.fallo = ResultadoRemoto.Timeout
+        sincronizador.sincronizar()
+        // El SDK terminó de escribir el documento después de que venciera el plazo.
+        remoto.fallo = null
+        remoto.agregar(fila("a").aDto().copy(claveCliente = "a"))
+        dao.actualizar(fila("a").copy(eliminado = true, sincronizacion = EstadoSincronizacion.Pendiente.name))
+
+        sincronizador.sincronizar()
+
+        assertEquals(1, remoto.llamadasEliminar)
+        assertTrue(remoto.de(ANA).isEmpty())
+        assertTrue("no resucita en la descarga", dao.filas.value.isEmpty())
+    }
+
+    @Test
+    fun `al cambiar de cuenta se olvida el estado de la corrida anterior`() = runTest {
+        dao.insertar(entidadDePrueba("a"))
+        remoto.fallo = ResultadoRemoto.ErrorServidor("UNAVAILABLE")
+        sincronizador.sincronizar()
+        assertTrue(sincronizador.estado.value is EstadoSync.Fallo)
+
+        sincronizador.reiniciarEstado()
+
+        assertEquals(EstadoSync.Inactivo, sincronizador.estado.value)
     }
 }

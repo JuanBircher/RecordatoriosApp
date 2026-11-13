@@ -13,3 +13,14 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Firebase: configuración del proyecto real (la entrega la incluye en el zip, no en git)
+google-services.json
+# Firma del release: nunca al repositorio
+keystore.properties
+*.jks
+*.keystore
+# Herramientas del emulador de Firebase
+firebase/node_modules/
+firebase/*.log
+firebase/.emulador-datos/

@@ -1,13 +1,14 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copia de seguridad automática en Android 11 y anteriores (en 12+ manda data_extraction_rules.xml).
+
+    Solo se respaldan las preferencias de DataStore (tema, orden, completados): no son datos personales.
+    Quedan afuera, por omisión:
+    - la base Room: los recordatorios ya están en Firestore y se recuperan al ingresar; además mezcla
+      registros de distintas cuentas que usaron el teléfono;
+    - las preferencias compartidas, donde el SDK de Firebase Authentication guarda la sesión: restaurarlas
+      en otro dispositivo clonaría una sesión que no se inició ahí.
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <include domain="file" path="datastore/" />
 </full-backup-content>

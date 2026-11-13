@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Todo el tráfico de la app va cifrado (HTTPS): Firebase no necesita otra cosa. El flavor dev reemplaza
+    este archivo (src/dev/res/xml) para permitir HTTP solo hacia el emulador de Firebase en la PC.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

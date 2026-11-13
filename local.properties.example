@@ -1,15 +1,12 @@
-# Ejemplo de configuración del servicio remoto.
+# Ejemplo de configuración local (no contiene secretos).
 #
-# Copiá este archivo como `local.properties` (en la raíz del proyecto, junto a `gradlew`) y ajustá los
-# valores. `local.properties` NO se versiona: no hay URL ni credenciales reales en el repositorio.
-# Android Studio ya crea ese archivo con `sdk.dir`; solo agregá estas líneas.
-#
-# Si no agregás nada, la app compila igual con los valores predeterminados de abajo.
+# Copiá estas líneas en `local.properties` (en la raíz del proyecto, junto a `gradlew`). Ese archivo NO se
+# versiona; Android Studio ya lo crea con `sdk.dir`. Si no agregás nada, la app compila igual con los
+# valores predeterminados de abajo.
 
-# URL base del servicio REST (con https). Con el servicio simulado no se usa para conectarse, pero es la
-# URL que Retrofit arma en cada petición.
-recordatorios.baseUrl=https://api.recordatorios.example/
-
-# true  -> el servicio lo simula la propia app (sin red): ideal para probar y entregar.
-# false -> Retrofit y OkHttp salen a la red real contra recordatorios.baseUrl.
-recordatorios.simulado=true
+# Host del Firebase Local Emulator Suite que usa el flavor `dev`.
+# - Emulador de Android: 10.0.2.2 (es la PC vista desde el emulador). Es el valor predeterminado.
+# - Teléfono físico: la IP de la PC en la red local (por ejemplo 192.168.0.10). En ese caso también hay que
+#   agregar esa IP en app/src/dev/res/xml/network_security_config.xml y arrancar los emuladores con
+#   "host": "0.0.0.0" en firebase/firebase.json.
+firebase.emulador.host=10.0.2.2

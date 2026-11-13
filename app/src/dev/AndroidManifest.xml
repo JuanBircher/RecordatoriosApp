@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        Solo en el flavor dev. Desde Android 17, una app que apunta a SDK 37 necesita este permiso de
+        ejecución para conectarse a direcciones de la red local, y el emulador de Firebase en la PC lo es
+        (10.0.2.2 desde el emulador de Android, o la IP de la PC desde un teléfono). prod solo habla con
+        los servidores de Firebase en internet: no lo declara ni lo pide (mínimo privilegio).
+    -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+</manifest>

@@ -5,17 +5,24 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
+    alias(libs.plugins.google.services)
 }
 
-// Configuración del servicio remoto: se lee de local.properties (no se versiona). Si falta, valen los
-// valores de abajo. Ver local.properties.example.
-val propiedadesLocales = Properties().apply {
-    providers.fileContents(rootProject.layout.projectDirectory.file("local.properties"))
+/** Lee un archivo .properties de la raíz del proyecto; si no existe, queda vacío. Ninguno se versiona. */
+fun propiedades(nombre: String) = Properties().apply {
+    providers.fileContents(rootProject.layout.projectDirectory.file(nombre))
         .asText.orNull?.let { load(StringReader(it)) }
 }
-val urlBase = propiedadesLocales.getProperty("recordatorios.baseUrl", "https://api.recordatorios.example/")
-    .let { if (it.endsWith("/")) it else "$it/" }
-val servicioSimulado = propiedadesLocales.getProperty("recordatorios.simulado", "true").toBoolean()
+
+// Host del Firebase Local Emulator Suite para el flavor dev. 10.0.2.2 es la PC vista desde el emulador de
+// Android; en un teléfono físico va la IP de la PC en la red local. Ver local.properties.example.
+val hostEmulador = propiedades("local.properties").getProperty("firebase.emulador.host", "10.0.2.2")
+
+// Firma del release: las credenciales viven en keystore.properties (fuera de git) y el .jks fuera del
+// proyecto. Si el archivo falta, el release se genera sin firmar en lugar de romper el build.
+val firma = propiedades("keystore.properties")
+val hayFirma = listOf("storeFile", "storePassword", "keyAlias", "keyPassword").all { !firma.getProperty(it).isNullOrBlank() }
 
 android {
     namespace = "com.juanbircher.recordatorios"
@@ -27,13 +34,41 @@ android {
         applicationId = "com.juanbircher.recordatorios"
         minSdk = 26
         targetSdk = 37
-        versionCode = 3
-        versionName = "3.0"
-
-        buildConfigField("String", "URL_BASE", "\"$urlBase\"")
-        buildConfigField("boolean", "SERVICIO_SIMULADO", servicioSimulado.toString())
+        // versionCode: entero que el sistema usa para ordenar las actualizaciones (siempre crece).
+        // versionName: lo que leen los testers y aparece en los reportes.
+        versionCode = 4
+        versionName = "4.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        if (hayFirma) {
+            create("release") {
+                storeFile = file(firma.getProperty("storeFile"))
+                storePassword = firma.getProperty("storePassword")
+                keyAlias = firma.getProperty("keyAlias")
+                keyPassword = firma.getProperty("keyPassword")
+            }
+        }
+    }
+
+    // Dos ambientes estables: dev trabaja contra el emulador de Firebase en la PC (nunca toca datos reales)
+    // y prod contra el proyecto Firebase real. Se instalan uno al lado del otro por el sufijo del paquete.
+    flavorDimensions += "ambiente"
+    productFlavors {
+        create("dev") {
+            dimension = "ambiente"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            buildConfigField("boolean", "USAR_EMULADOR", "true")
+            buildConfigField("String", "EMULADOR_HOST", "\"$hostEmulador\"")
+        }
+        create("prod") {
+            dimension = "ambiente"
+            buildConfigField("boolean", "USAR_EMULADOR", "false")
+            buildConfigField("String", "EMULADOR_HOST", "\"\"")
+        }
     }
 
     buildTypes {
@@ -42,6 +77,7 @@ android {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
             }
+            if (hayFirma) signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -53,6 +89,34 @@ android {
         buildConfig = true
     }
 }
+
+// El esquema de cada versión de la base se exporta y se versiona: documenta la migración y permite probarla.
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
+// dev no usa google-services.json (se configura a mano contra el emulador). En prod el archivo va en
+// app/src/prod/ y no se versiona: si falta, el plugin solo avisa (así compilan dev y las pruebas)...
+googleServices {
+    missingGoogleServicesStrategy = com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy.WARN
+}
+
+// ...pero un release de prod sin configuración de Firebase se cerraría al abrir: ese build se corta acá.
+val hayConfiguracionFirebaseProd = file("src/prod/google-services.json").exists()
+val verificarFirebaseProd = tasks.register("verificarConfiguracionFirebaseProd") {
+    description = "Corta el release de prod si falta app/src/prod/google-services.json."
+    val existe = hayConfiguracionFirebaseProd
+    // Sin salidas declaradas, Gradle la ejecuta siempre (nunca queda «al día»).
+    doLast {
+        if (!existe) {
+            throw GradleException(
+                "Falta app/src/prod/google-services.json: el release de prod no puede funcionar sin él. " +
+                    "Ver docs/firebase-setup.md."
+            )
+        }
+    }
+}
+tasks.matching { it.name == "processProdReleaseGoogleServices" }.configureEach { dependsOn(verificarFirebaseProd) }
 
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
@@ -72,10 +136,10 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.gson)
-    implementation(libs.okhttp)
-    implementation(libs.gson)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.kotlinx.coroutines.play.services)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.kotlinx.coroutines.test)

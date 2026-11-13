@@ -49,3 +49,26 @@ Gson 2.15.0. Pruebas unitarias en JVM y pruebas instrumentadas del DAO en el emu
 
 El recorrido completo en el emulador (preferencias, creación sin conexión, cierre y reapertura, recuperación de
 la conexión, edición, eliminación y los cuatro tipos de fallo) terminó sin crashes en logcat.
+
+## Actividad 4
+
+Mismo entorno. Dependencias nuevas: Firebase BoM 34.19.0 (Authentication y Firestore), kotlinx-coroutines-play-services
+1.11.0, plugin Google Services 4.6.0 y plugin de Room 2.8.5. Para el emulador de Firebase: firebase-tools 15.34.1,
+@firebase/rules-unit-testing 6.0.0 y firebase 13.1.0 (versiones fijas con más de dos semanas de publicadas).
+
+| # | Etapa | Síntoma | Causa | Corrección | Verificación |
+|---|---|---|---|---|---|
+| 1 | Compilación (pruebas) | `Module was compiled with an incompatible version of Kotlin. The binary version of its metadata is 2.4.0, expected version is 2.2.0` en `firebase-auth-25.0.0` | Firebase BoM 35.x está compilado con Kotlin 2.4; el proyecto usa Kotlin 2.2.10 | Usar Firebase BoM 34.19.0 (la última 34) en lugar de subir Kotlin, que arrastra al plugin de Compose | Compila y las pruebas corren |
+| 2 | Pruebas | `NoClassDefFoundError: Could not initialize class FirebaseFirestoreException$Code` y `Method isEmpty in android.text.TextUtils not mocked` | El enum de códigos de Firestore y `FirebaseNetworkException` usan clases de Android al inicializarse; en la JVM no existen | El clasificador trabaja con el **nombre** del código (`String`), que es puro; la conversión desde la excepción queda en la fuente remota | 6/6 pruebas del clasificador en verde |
+| 3 | Pruebas (intencional) | 20 de 153 en rojo (`NotImplementedError`) | TDD: el clasificador de errores de autenticación, el mapeo de Firestore, `CoordinadorSesion` y `AccesoViewModel` eran esqueletos con `TODO()` | Implementarlos | 153/153 en verde. Comprobación inversa en el sincronizador: sin el corte por `NoAutorizado`, sin el control de cambio de sesión, sin la detección de borrados o borrando con un listado fallido, falla al menos una prueba en cada caso |
+| 4 | Pruebas de reglas | `Could not start Firestore Emulator, port taken` | El puerto 8080 lo usan Docker y WSL en esta PC | Firestore emulado en el 8085 (`firebase.json` y `RecordatoriosApp`) | El emulador arranca |
+| 5 | Pruebas de reglas | `Cannot find module ...\firebase\test` | En Windows, `node --test` no acepta una carpeta como argumento | Indicar el archivo `test/reglas.test.js` | 13/13 en verde. Comprobación inversa: con la regla de dueño debilitada a «cualquier sesión», fallan las 4 pruebas de acceso entre cuentas |
+| 6 | Ejecución (dev) | Registrarse quedaba «Verificando con el servicio…» y a los 10 s mostraba «No hay conexión»; logcat: `RecaptchaCallWrapper: ... A network error ... has occurred` | **Android 17 exige el permiso de ejecución `ACCESS_LOCAL_NETWORK`** a las apps con targetSdk 37 para conectarse a direcciones locales. `nc 10.0.2.2 9099` funcionaba desde la shell pero vencía con el usuario de la app (`run-as`) | Declarar el permiso solo en el manifest de `dev` y pedirlo al iniciar cuando se usa el emulador. prod no lo necesita | Con el permiso otorgado, `nc` como la app recibe `HTTP/1.1 200 OK` y el registro crea la cuenta en el emulador |
+| 7 | Ejecución (dev) | Con la cuenta deshabilitada, la app volvía al acceso **sin** el aviso de sesión inválida | Firebase cierra la sesión por su cuenta cuando `reload()` falla y después la cierra la app: llegan dos avisos. El motivo se «consumía» en el primero y el segundo lo pisaba con `SinSesion(null)` | El motivo pasa a ser un estado propio que se combina con el usuario y se borra recién al volver a ingresar | Deshabilitar la cuenta en el emulador y reabrir: aparece «Tu sesión ya no es válida» |
+| 8 | Revisión | El formulario de acceso conservaba en memoria el correo y la contraseña de la sesión anterior | `AccesoViewModel` vive con la actividad, no con la sesión | Vaciar el formulario cuando el ingreso sale bien | Prueba nueva vista en rojo y después en verde |
+| 9 | Release | `Lint found fatal errors ... InvalidFragmentVersionForActivityResult` en `assembleProdRelease` | Firebase trae `androidx.fragment` 1.1.0, incompatible con la API de resultados de actividades | Pedir el permiso con `requestPermissions` de la plataforma (no se necesita la respuesta) | `assembleProdRelease` termina con `BUILD SUCCESSFUL` |
+| 10 | Ejecución (prueba) | Lo tipeado con `adb shell input text " (offline)"` no llegaba al campo | Los paréntesis rompen el comando en la shell del dispositivo; no es un error de la app | Tipear sin paréntesis | El título editado se guarda |
+
+El recorrido en el emulador (registro, creación, edición sin conexión, sincronización al reconectar sin duplicar,
+cierre de sesión, otra cuenta en el mismo teléfono, prueba de acceso entre cuentas, cuenta deshabilitada, alta y
+borrado desde otro dispositivo, e instalación nueva que recupera los datos) terminó sin crashes en logcat.

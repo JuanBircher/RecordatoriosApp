@@ -1,13 +1,11 @@
 package com.juanbircher.recordatorios.ui.listado
 
 import com.juanbircher.recordatorios.data.ResumenSincronizacion
-import com.juanbircher.recordatorios.data.remote.ModoRed
 import com.juanbircher.recordatorios.data.sync.EstadoSync
 import com.juanbircher.recordatorios.domain.FiltroEstado
 import com.juanbircher.recordatorios.domain.Prioridad
 import com.juanbircher.recordatorios.ui.ReglaDispatcherMain
 import com.juanbircher.recordatorios.ui.RepositorioFalso
-import com.juanbircher.recordatorios.ui.SimuladorFalso
 import com.juanbircher.recordatorios.ui.recordatorioDePrueba
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -29,9 +27,7 @@ class ListadoViewModelTest {
     private val baja = recordatorioDePrueba(1, Prioridad.Baja)
     private val alta = recordatorioDePrueba(2, Prioridad.Alta)
 
-    private val simulador = SimuladorFalso()
-
-    private fun viewModel(repositorio: RepositorioFalso) = ListadoViewModel(repositorio, simulador)
+    private fun viewModel(repositorio: RepositorioFalso) = ListadoViewModel(repositorio)
 
     /** La observación no termina nunca, así que se avanza solo lo que tarda la carga. */
     private fun TestScope.esperarCarga() = advanceTimeBy(RepositorioFalso.LATENCIA + 1)
@@ -123,17 +119,6 @@ class ListadoViewModelTest {
     }
 
     @Test
-    fun `elegir un modo del servicio simulado lo aplica sin recargar la lista`() = runTest(main.dispatcher) {
-        val vm = viewModel(RepositorioFalso(listOf(alta)))
-        esperarCarga()
-
-        vm.onModoServidor(ModoRed.SinConexion)
-
-        assertEquals(ModoRed.SinConexion, simulador.modo.value)
-        assertTrue(vm.uiState.value is ListadoUiState.ConDatos)
-    }
-
-    @Test
     fun `sincronizar y reintentar fallidos se delegan en el repositorio`() = runTest(main.dispatcher) {
         val repositorio = RepositorioFalso(listOf(alta))
         val vm = viewModel(repositorio)
@@ -174,5 +159,18 @@ class ListadoViewModelTest {
         val estado = vm.uiState.value as ListadoUiState.ConDatos
         assertTrue(estado.completadosOcultos)
         assertTrue(estado.visibles.isEmpty())
+    }
+
+    @Test
+    fun `si sincronizar o reintentar fallan, por almacenamiento o por falta de sesion, la app no se cae`() = runTest(main.dispatcher) {
+        val repositorio = RepositorioFalso(listOf(alta)).apply { fallaAlSincronizar = true }
+        val vm = viewModel(repositorio)
+        esperarCarga()
+
+        vm.onSincronizar()
+        vm.onReintentarFallidos()
+        runCurrent()
+
+        assertTrue(vm.uiState.value is ListadoUiState.ConDatos)
     }
 }

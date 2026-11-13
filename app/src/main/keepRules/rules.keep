@@ -1,10 +1,6 @@
 # Reglas de R8 para la versión release.
 # AGP combina todos los archivos de src/main/keepRules y se los pasa a R8.
 #
-# Gson lee y escribe los DTO por reflexión: si R8 renombrara o quitara sus campos, el servicio y la app
-# dejarían de entenderse. Se conservan los campos de los modelos que viajan por la red (y del estado del
-# servicio simulado, que también se serializa con Gson).
--keepclassmembers class com.juanbircher.recordatorios.data.remote.** {
-    <fields>;
-}
--keep class com.juanbircher.recordatorios.data.remote.RecordatorioDto { <init>(...); }
+# No hacen falta reglas propias: los documentos de Firestore se arman y se leen a mano como Map
+# (MapeosFirestore.kt), sin reflexión, así que R8 puede renombrar los modelos sin romper nada. Las
+# bibliotecas de Firebase y de AndroidX traen sus propias reglas dentro del AAR.

@@ -14,14 +14,6 @@
     <string name="error_carga">No se pudieron cargar los recordatorios. Intentá de nuevo.</string>
     <string name="reintentar">Reintentar</string>
 
-    <!-- Simulación del servicio remoto -->
-    <string name="simular_abrir_menu">Simular el servicio remoto</string>
-    <string name="simular_titulo">Simular el servicio remoto</string>
-    <string name="modo_normal">Servicio normal</string>
-    <string name="modo_sin_conexion">Sin conexión</string>
-    <string name="modo_timeout">Timeout</string>
-    <string name="modo_error_servidor">Error del servidor (500)</string>
-    <string name="modo_solicitud_invalida">Rechaza lo enviado (400)</string>
     <string name="sincronizar_ahora">Sincronizar ahora</string>
     <string name="abrir_ajustes">Ajustes</string>
 
@@ -42,6 +34,7 @@
     <string name="causa_error_servidor">falla del servicio</string>
     <string name="causa_solicitud_invalida">el servicio rechazó los datos</string>
     <string name="causa_respuesta_invalida">respuesta ilegible del servicio</string>
+    <string name="causa_no_autorizado">la sesión no tiene permiso; volvé a ingresar</string>
     <string name="sync_estado_sincronizado">Sincronizado</string>
     <string name="sync_estado_pendiente">Pendiente de enviar</string>
     <string name="sync_estado_error">Error al enviar: hace falta reintentar</string>
@@ -118,4 +111,54 @@
     <string name="ajustes_nota">Estas preferencias se guardan en DataStore y siguen aplicadas al cerrar la app. Los recordatorios se guardan en Room.</string>
     <string name="error_ajustes">No se pudo guardar la preferencia. Intentá de nuevo.</string>
     <string name="entendido">Entendido</string>
+
+    <!-- Acceso -->
+    <string name="acceso_titulo_ingresar">Ingresar</string>
+    <string name="acceso_titulo_crear">Crear cuenta</string>
+    <string name="acceso_explicacion">Con tu cuenta, tus recordatorios se guardan en la nube y los recuperás en otro dispositivo.</string>
+    <string name="acceso_correo">Correo electrónico</string>
+    <string name="acceso_contrasena">Contraseña</string>
+    <string name="acceso_contrasena_ayuda">Al menos 6 caracteres.</string>
+    <string name="acceso_mostrar">Mostrar</string>
+    <string name="acceso_ocultar">Ocultar</string>
+    <string name="acceso_mostrar_contrasena">Mostrar contraseña</string>
+    <string name="acceso_ocultar_contrasena">Ocultar contraseña</string>
+    <string name="acceso_boton_ingresar">Ingresar</string>
+    <string name="acceso_boton_crear">Crear cuenta</string>
+    <string name="acceso_ir_a_crear">¿No tenés cuenta? Creá una</string>
+    <string name="acceso_ir_a_ingresar">¿Ya tenés cuenta? Ingresá</string>
+    <string name="acceso_enviando">Verificando con el servicio…</string>
+    <string name="acceso_error_correo">Escribí un correo válido, por ejemplo nombre@dominio.com.</string>
+    <string name="acceso_error_contrasena">La contraseña debe tener al menos 6 caracteres.</string>
+    <string name="acceso_verificando">Comprobando la sesión…</string>
+    <string name="acceso_aviso_cerro_sesion">Cerraste la sesión. Tus cambios sin enviar quedaron guardados y se enviarán cuando vuelvas a ingresar.</string>
+    <string name="acceso_aviso_sesion_invalida">Tu sesión ya no es válida (la cuenta pudo haberse deshabilitado). Ingresá de nuevo.</string>
+    <string name="error_auth_credenciales">El correo o la contraseña no son correctos.</string>
+    <string name="error_auth_correo_en_uso">Ya existe una cuenta con ese correo. Probá ingresar.</string>
+    <string name="error_auth_contrasena_debil">La contraseña es demasiado débil. Usá una más larga.</string>
+    <string name="error_auth_correo_invalido">El servicio no acepta ese correo.</string>
+    <string name="error_auth_cuenta_deshabilitada">La cuenta está deshabilitada.</string>
+    <string name="error_auth_demasiados_intentos">Demasiados intentos. Esperá unos minutos y volvé a probar.</string>
+    <string name="error_auth_sin_conexion">No hay conexión. Para ingresar hace falta internet.</string>
+    <string name="error_auth_otro">No se pudo completar la operación. Intentá de nuevo.</string>
+
+    <!-- Cuenta (Ajustes) -->
+    <string name="ajustes_cuenta">Cuenta</string>
+    <string name="cuenta_correo">Correo: %1$s</string>
+    <string name="cuenta_uid">Identificador (uid): %1$s</string>
+    <plurals name="cuenta_cambios_sin_enviar">
+        <item quantity="one">%1$d cambio todavía no llegó a la nube. Si cerrás la sesión, queda guardado en este dispositivo y se envía cuando vuelvas a ingresar.</item>
+        <item quantity="other">%1$d cambios todavía no llegaron a la nube. Si cerrás la sesión, quedan guardados en este dispositivo y se envían cuando vuelvas a ingresar.</item>
+    </plurals>
+    <string name="cuenta_cerrar_sesion">Cerrar sesión</string>
+    <string name="cuenta_confirmar_titulo">¿Cerrar la sesión?</string>
+    <string name="cuenta_confirmar_texto">Otra persona que ingrese en este teléfono no verá tus recordatorios.</string>
+    <string name="prueba_acceso_titulo">Prueba de autorización (solo desarrollo)</string>
+    <string name="prueba_acceso_explicacion">Intenta leer del servicio los recordatorios de otra cuenta, sin pasar por la interfaz normal. Las reglas de Firestore deben rechazarlo.</string>
+    <string name="prueba_acceso_uid">uid de otra cuenta</string>
+    <string name="prueba_acceso_boton">Intentar leer</string>
+    <string name="prueba_acceso_en_curso">Consultando al servicio…</string>
+    <string name="prueba_acceso_rechazado">La prueba no fue concluyente: %1$s.</string>
+    <string name="prueba_acceso_denegado">✔ El servicio rechazó la lectura: permiso denegado. Las reglas de Firestore no dejan que esta cuenta lea datos de otra.</string>
+    <string name="prueba_acceso_permitido">⚠ El servicio entregó %1$d documentos: las reglas NO están protegiendo esa colección.</string>
 </resources>

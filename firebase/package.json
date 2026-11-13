@@ -1,0 +1,16 @@
+{
+  "name": "recordatorios-firebase",
+  "private": true,
+  "description": "Reglas de seguridad de Firestore de RecordatoriosApp y sus pruebas contra el Firebase Local Emulator Suite.",
+  "type": "module",
+  "scripts": {
+    "emuladores": "firebase emulators:start --project demo-recordatorios",
+    "test": "firebase emulators:exec --only firestore --project demo-recordatorios \"node --test test/reglas.test.js\"",
+    "publicar-reglas": "firebase deploy --only firestore:rules"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "6.0.0",
+    "firebase": "13.1.0",
+    "firebase-tools": "15.34.1"
+  }
+}

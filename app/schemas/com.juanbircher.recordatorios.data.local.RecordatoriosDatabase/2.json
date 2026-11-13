@@ -1,0 +1,148 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "dbcdbe565d417e22c8b7689eca6dd935",
+    "entities": [
+      {
+        "tableName": "recordatorios",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uid` TEXT NOT NULL, `claveCliente` TEXT NOT NULL, `enRemoto` INTEGER NOT NULL, `titulo` TEXT NOT NULL, `descripcion` TEXT, `categoriaId` TEXT NOT NULL, `categoriaNombre` TEXT NOT NULL, `prioridad` INTEGER NOT NULL, `estadoTipo` TEXT NOT NULL, `completadoEl` TEXT, `motivoCancelacion` TEXT, `creadoEl` TEXT NOT NULL, `fechaLimite` TEXT, `ubicacion` TEXT, `sincronizacion` TEXT NOT NULL, `intentos` INTEGER NOT NULL, `eliminado` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uid",
+            "columnName": "uid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "claveCliente",
+            "columnName": "claveCliente",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enRemoto",
+            "columnName": "enRemoto",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "titulo",
+            "columnName": "titulo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "descripcion",
+            "columnName": "descripcion",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "categoriaId",
+            "columnName": "categoriaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoriaNombre",
+            "columnName": "categoriaNombre",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "prioridad",
+            "columnName": "prioridad",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estadoTipo",
+            "columnName": "estadoTipo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completadoEl",
+            "columnName": "completadoEl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "motivoCancelacion",
+            "columnName": "motivoCancelacion",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "creadoEl",
+            "columnName": "creadoEl",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fechaLimite",
+            "columnName": "fechaLimite",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ubicacion",
+            "columnName": "ubicacion",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sincronizacion",
+            "columnName": "sincronizacion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "intentos",
+            "columnName": "intentos",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eliminado",
+            "columnName": "eliminado",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_recordatorios_claveCliente",
+            "unique": true,
+            "columnNames": [
+              "claveCliente"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_recordatorios_claveCliente` ON `${TABLE_NAME}` (`claveCliente`)"
+          },
+          {
+            "name": "index_recordatorios_uid",
+            "unique": false,
+            "columnNames": [
+              "uid"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_recordatorios_uid` ON `${TABLE_NAME}` (`uid`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'dbcdbe565d417e22c8b7689eca6dd935')"
+    ]
+  }
+}

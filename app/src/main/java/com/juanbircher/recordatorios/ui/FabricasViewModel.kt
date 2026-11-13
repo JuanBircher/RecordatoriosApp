@@ -6,20 +6,31 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.juanbircher.recordatorios.BuildConfig
 import com.juanbircher.recordatorios.RecordatoriosApp
+import com.juanbircher.recordatorios.ui.acceso.AccesoViewModel
 import com.juanbircher.recordatorios.ui.ajustes.AjustesViewModel
 import com.juanbircher.recordatorios.ui.crear.CrearViewModel
 import com.juanbircher.recordatorios.ui.detalle.DetalleViewModel
 import com.juanbircher.recordatorios.ui.listado.ListadoViewModel
 import com.juanbircher.recordatorios.ui.navegacion.Rutas
+import com.juanbircher.recordatorios.ui.navegacion.SesionViewModel
 
 private val CreationExtras.app: RecordatoriosApp
     get() = this[APPLICATION_KEY] as RecordatoriosApp
 
-/** Cómo se construye cada ViewModel: acá se le entrega la interfaz del repositorio que necesita. */
+/** Cómo se construye cada ViewModel: acá se le entregan las interfaces (repositorio, autenticación) que necesita. */
 object FabricasViewModel {
+    val sesion: ViewModelProvider.Factory = viewModelFactory {
+        initializer { SesionViewModel(app.auth) }
+    }
+
+    val acceso: ViewModelProvider.Factory = viewModelFactory {
+        initializer { AccesoViewModel(app.auth) }
+    }
+
     val listado: ViewModelProvider.Factory = viewModelFactory {
-        initializer { ListadoViewModel(app.repositorio, app.simulador) }
+        initializer { ListadoViewModel(app.repositorio) }
     }
 
     /**
@@ -42,6 +53,6 @@ object FabricasViewModel {
     }
 
     val ajustes: ViewModelProvider.Factory = viewModelFactory {
-        initializer { AjustesViewModel(app.repositorio) }
+        initializer { AjustesViewModel(app.repositorio, app.auth, permitirPruebaAcceso = BuildConfig.USAR_EMULADOR) }
     }
 }

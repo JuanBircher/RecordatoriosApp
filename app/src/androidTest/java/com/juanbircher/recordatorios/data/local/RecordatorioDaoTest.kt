@@ -37,8 +37,10 @@ class RecordatorioDaoTest {
         clave: String,
         titulo: String = "Recordatorio $clave",
         estado: String = RecordatorioEntity.PENDIENTE,
-        sincronizacion: String = "Pendiente"
+        sincronizacion: String = "Pendiente",
+        uid: String = ANA
     ) = RecordatorioEntity(
+        uid = uid,
         claveCliente = clave,
         titulo = titulo,
         categoriaId = "estudio",
@@ -55,28 +57,28 @@ class RecordatorioDaoTest {
         val id = dao.insertar(entidad("a"))
 
         assertTrue(id > 0)
-        assertEquals("Recordatorio a", dao.obtenerPorId(id)?.titulo)
-        assertEquals("Recordatorio a", dao.observarPorId(id).first()?.titulo)
+        assertEquals("Recordatorio a", dao.obtenerPorId(ANA, id)?.titulo)
+        assertEquals("Recordatorio a", dao.observarPorId(ANA, id).first()?.titulo)
     }
 
     @Test
     fun el_listado_completo_se_emite_y_se_actualiza_solo() = runBlocking {
         dao.insertar(entidad("a"))
-        assertEquals(1, dao.observarTodos().first().size)
+        assertEquals(1, dao.observarTodos(ANA).first().size)
 
         dao.insertar(entidad("b"))
 
-        assertEquals(listOf("a", "b"), dao.observarTodos().first().map { it.claveCliente })
+        assertEquals(listOf("a", "b"), dao.observarTodos(ANA).first().map { it.claveCliente })
     }
 
     @Test
     fun actualizar_modifica_la_fila_y_conserva_el_id() = runBlocking {
         val id = dao.insertar(entidad("a"))
 
-        dao.actualizar(dao.obtenerPorId(id)!!.copy(titulo = "Título nuevo"))
+        dao.actualizar(dao.obtenerPorId(ANA, id)!!.copy(titulo = "Título nuevo"))
 
-        assertEquals("Título nuevo", dao.obtenerPorId(id)?.titulo)
-        assertEquals(1, dao.observarTodos().first().size)
+        assertEquals("Título nuevo", dao.obtenerPorId(ANA, id)?.titulo)
+        assertEquals(1, dao.observarTodos(ANA).first().size)
     }
 
     @Test
@@ -85,8 +87,8 @@ class RecordatorioDaoTest {
 
         dao.eliminar(id)
 
-        assertNull(dao.obtenerPorId(id))
-        assertTrue(dao.observarTodos().first().isEmpty())
+        assertNull(dao.obtenerPorId(ANA, id))
+        assertTrue(dao.observarTodos(ANA).first().isEmpty())
     }
 
     @Test
@@ -95,21 +97,21 @@ class RecordatorioDaoTest {
         dao.insertar(entidad("hecho", estado = RecordatorioEntity.COMPLETADO))
         dao.insertar(entidad("cancelado", estado = RecordatorioEntity.CANCELADO))
 
-        val sinCompletados = dao.observarSinCompletados().first().map { it.claveCliente }
+        val sinCompletados = dao.observarSinCompletados(ANA).first().map { it.claveCliente }
 
         assertEquals(listOf("pendiente", "cancelado"), sinCompletados)
-        assertEquals(3, dao.observarTodos().first().size)
+        assertEquals(3, dao.observarTodos(ANA).first().size)
     }
 
     @Test
     fun los_marcados_para_borrar_no_aparecen_en_las_consultas_de_la_interfaz() = runBlocking {
         val id = dao.insertar(entidad("a"))
-        dao.actualizar(dao.obtenerPorId(id)!!.copy(eliminado = true))
+        dao.actualizar(dao.obtenerPorId(ANA, id)!!.copy(eliminado = true))
 
-        assertTrue(dao.observarTodos().first().isEmpty())
-        assertNull(dao.obtenerPorId(id))
-        assertNull(dao.observarPorId(id).first())
-        assertEquals("pero la fila sigue para poder avisar al servicio", id, dao.obtenerPorClave("a")?.id)
+        assertTrue(dao.observarTodos(ANA).first().isEmpty())
+        assertNull(dao.obtenerPorId(ANA, id))
+        assertNull(dao.observarPorId(ANA, id).first())
+        assertEquals("pero la fila sigue para poder avisar al servicio", id, dao.obtenerPorClave(ANA, "a")?.id)
     }
 
     @Test
@@ -119,7 +121,7 @@ class RecordatorioDaoTest {
         val resultado = runCatching { dao.insertar(entidad("a", titulo = "Duplicado")) }
 
         assertTrue(resultado.exceptionOrNull() is SQLiteConstraintException)
-        assertEquals(1, dao.observarTodos().first().size)
+        assertEquals(1, dao.observarTodos(ANA).first().size)
     }
 
     @Test
@@ -129,14 +131,14 @@ class RecordatorioDaoTest {
         dao.insertar(entidad("e1", sincronizacion = "Error"))
         dao.insertar(entidad("s1", sincronizacion = "Sincronizado"))
 
-        assertEquals(listOf("p1", "p2"), dao.obtenerPendientes().map { it.claveCliente })
-        assertEquals(2, dao.contarPorSincronizacion("Pendiente").first())
-        assertEquals(1, dao.contarPorSincronizacion("Error").first())
+        assertEquals(listOf("p1", "p2"), dao.obtenerPendientes(ANA).map { it.claveCliente })
+        assertEquals(2, dao.contarPorSincronizacion(ANA, "Pendiente").first())
+        assertEquals(1, dao.contarPorSincronizacion(ANA, "Error").first())
 
-        assertEquals(1, dao.reencolarErrores())
+        assertEquals(1, dao.reencolarErrores(ANA))
 
-        assertEquals(3, dao.contarPorSincronizacion("Pendiente").first())
-        assertEquals(0, dao.contarPorSincronizacion("Error").first())
+        assertEquals(3, dao.contarPorSincronizacion(ANA, "Pendiente").first())
+        assertEquals(0, dao.contarPorSincronizacion(ANA, "Error").first())
     }
 
     @Test
@@ -149,10 +151,50 @@ class RecordatorioDaoTest {
 
         val segunda = Room.databaseBuilder(contexto, RecordatoriosDatabase::class.java, nombre).build()
         try {
-            assertEquals("Sigue después de cerrar", segunda.recordatorioDao().observarTodos().first().single().titulo)
+            assertEquals("Sigue después de cerrar", segunda.recordatorioDao().observarTodos(ANA).first().single().titulo)
         } finally {
             segunda.close()
             contexto.deleteDatabase(nombre)
         }
+    }
+
+    // ---- datos por cuenta ----------------------------------------------------------------------
+
+    @Test
+    fun cada_cuenta_ve_solo_sus_filas_aunque_compartan_la_base() = runBlocking {
+        val deAna = dao.insertar(entidad("de-ana", uid = ANA))
+        dao.insertar(entidad("de-beto", uid = BETO))
+
+        assertEquals(listOf("de-ana"), dao.observarTodos(ANA).first().map { it.claveCliente })
+        assertEquals(listOf("de-beto"), dao.observarTodos(BETO).first().map { it.claveCliente })
+        assertNull("Beto no abre por id una fila de Ana", dao.obtenerPorId(BETO, deAna))
+        assertNull(dao.obtenerPorClave(BETO, "de-ana"))
+        assertEquals(listOf("de-beto"), dao.obtenerPendientes(BETO).map { it.claveCliente })
+        assertEquals(1, dao.contarPorSincronizacion(ANA, "Pendiente").first())
+    }
+
+    @Test
+    fun las_filas_sin_duenio_se_adoptan_una_sola_vez() = runBlocking {
+        dao.insertar(entidad("vieja", uid = ""))
+
+        assertEquals(1, dao.adoptarHuerfanas(ANA))
+        assertEquals(0, dao.adoptarHuerfanas(BETO))
+
+        assertEquals(listOf("vieja"), dao.observarTodos(ANA).first().map { it.claveCliente })
+        assertTrue(dao.observarTodos(BETO).first().isEmpty())
+    }
+
+    @Test
+    fun solo_las_confirmadas_en_el_servicio_son_candidatas_a_borrado_remoto() = runBlocking {
+        dao.insertar(entidad("confirmada", sincronizacion = "Sincronizado").copy(enRemoto = true))
+        dao.insertar(entidad("pendiente").copy(enRemoto = true))
+        dao.insertar(entidad("nunca-subio", sincronizacion = "Sincronizado"))
+
+        assertEquals(listOf("confirmada"), dao.obtenerSincronizadosEnRemoto(ANA).map { it.claveCliente })
+    }
+
+    private companion object {
+        const val ANA = "uid-ana"
+        const val BETO = "uid-beto"
     }
 }

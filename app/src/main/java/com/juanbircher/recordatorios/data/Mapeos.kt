@@ -43,8 +43,12 @@ fun RecordatorioEntity.aDominio(): Recordatorio = Recordatorio(
 
 // ---- Dominio -> entity ------------------------------------------------------------------------
 
-/** Fila nueva para un recordatorio creado en el dispositivo: queda pendiente de enviarse. */
-fun Recordatorio.aEntidadNueva(claveCliente: String): RecordatorioEntity = RecordatorioEntity(
+/**
+ * Fila nueva para un recordatorio creado en el dispositivo por la cuenta [uid]: queda pendiente de
+ * enviarse y todavía no existe en el servicio.
+ */
+fun Recordatorio.aEntidadNueva(claveCliente: String, uid: String): RecordatorioEntity = RecordatorioEntity(
+    uid = uid,
     claveCliente = claveCliente,
     titulo = titulo,
     descripcion = descripcion,
@@ -61,17 +65,16 @@ fun Recordatorio.aEntidadNueva(claveCliente: String): RecordatorioEntity = Recor
 )
 
 /**
- * Aplica los cambios de [recordatorio] sobre una fila existente, conservando su identidad
- * (`id`, `claveCliente`, `idRemoto`). El cambio queda pendiente de enviarse.
+ * Aplica los cambios de [recordatorio] sobre una fila existente, conservando su identidad y su dueño
+ * (`id`, `uid`, `claveCliente`, `enRemoto`). El cambio queda pendiente de enviarse.
  */
 fun RecordatorioEntity.conCambiosDe(recordatorio: Recordatorio): RecordatorioEntity =
-    recordatorio.aEntidadNueva(claveCliente).copy(id = id, idRemoto = idRemoto)
+    recordatorio.aEntidadNueva(claveCliente, uid).copy(id = id, enRemoto = enRemoto)
 
 // ---- Entity -> DTO ----------------------------------------------------------------------------
 
-/** Lo que se envía al servicio. */
+/** Lo que se envía al servicio: solo el contenido; el dueño y el id del documento van en la ruta. */
 fun RecordatorioEntity.aDto(): RecordatorioDto = RecordatorioDto(
-    id = idRemoto,
     claveCliente = claveCliente,
     titulo = titulo,
     descripcion = descripcion,
@@ -88,17 +91,17 @@ fun RecordatorioEntity.aDto(): RecordatorioDto = RecordatorioDto(
 // ---- DTO -> entity ----------------------------------------------------------------------------
 
 /**
- * Transforma un DTO recibido en una fila sincronizada. Devuelve `null` si el DTO no es válido (faltan
- * campos, fechas ilegibles, categoría desconocida o no cumple las reglas del dominio): un dato inválido
- * del servicio se descarta y nunca llega a Room.
+ * Transforma un DTO recibido de la colección de la cuenta [uid] en una fila sincronizada. Devuelve `null`
+ * si el DTO no es válido (faltan campos, fechas ilegibles, categoría desconocida o no cumple las reglas
+ * del dominio): un dato inválido del servicio se descarta y nunca llega a Room.
  *
- * Si [existente] no es `null`, la fila resultante conserva su `id` local y su `claveCliente`.
+ * Si [existente] no es `null`, la fila resultante conserva su `id` local.
  */
 fun RecordatorioDto.aEntidad(
+    uid: String,
     categorias: Set<Categoria>,
     existente: RecordatorioEntity? = null
 ): RecordatorioEntity? {
-    val idRemoto = id ?: return null
     val clave = claveCliente?.takeIf { it.isNotBlank() } ?: return null
     val categoria = categorias.firstOrNull { it.id == categoriaId } ?: return null
     val prioridadDominio = prioridad?.let { Prioridad.desdeCodigo(it) } ?: return null
@@ -121,9 +124,9 @@ fun RecordatorioDto.aEntidad(
     }
     if (validar(dominio, categorias) !is ResultadoValidacion.Valido) return null
 
-    return dominio.aEntidadNueva(clave).copy(
+    return dominio.aEntidadNueva(clave, uid).copy(
         id = existente?.id ?: 0,
-        idRemoto = idRemoto,
+        enRemoto = true,
         sincronizacion = EstadoSincronizacion.Sincronizado.name,
         intentos = 0
     )

@@ -1,5 +1,6 @@
 package com.juanbircher.recordatorios.data
 
+import com.juanbircher.recordatorios.data.remote.CausaFallo
 import com.juanbircher.recordatorios.data.sync.EstadoSync
 import com.juanbircher.recordatorios.data.sync.ResultadoSincronizacion
 import com.juanbircher.recordatorios.domain.Categoria
@@ -10,12 +11,25 @@ import com.juanbircher.recordatorios.domain.TemaApp
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
+/** Respuesta del servicio al intentar leer la colección de otra cuenta (prueba de autorización). */
+sealed interface ResultadoPruebaAcceso {
+    /** El servicio entregó los datos: las reglas no estarían protegiendo esa colección. */
+    data class Permitido(val cantidad: Int) : ResultadoPruebaAcceso
+
+    /** El servicio rechazó la lectura; lo esperado es [CausaFallo.NoAutorizado]. */
+    data class Rechazado(val causa: CausaFallo) : ResultadoPruebaAcceso
+}
+
 /** Cuántos recordatorios esperan enviarse y cuántos necesitan un nuevo intento manual. */
 data class ResumenSincronizacion(val pendientes: Int = 0, val conError: Int = 0)
 
 /**
  * Única puerta de la interfaz hacia los datos. Coordina Room (fuente de verdad), DataStore (preferencias)
- * y el servicio remoto. Los ViewModel dependen de esta interfaz: nunca ven el DAO, los DTO ni Retrofit.
+ * y el servicio cloud (Firestore). Los ViewModel dependen de esta interfaz: nunca ven el DAO, los DTO ni
+ * Firebase.
+ *
+ * Todo lo que lee y escribe corresponde a la **cuenta con sesión activa**: sin sesión no hay recordatorios
+ * visibles, y una cuenta nunca ve ni modifica los de otra, aunque compartan el dispositivo.
  *
  * Todo lo que devuelve son modelos de dominio. Si el almacenamiento local falla, las operaciones lanzan
  * [java.io.IOException]; los problemas de red **no** se propagan: quedan reflejados en
@@ -46,7 +60,10 @@ interface RecordatoriosRepository {
     /** Devuelve el recordatorio con ese [id], o `null` si no existe. */
     suspend fun obtenerRecordatorio(id: Long): Recordatorio?
 
-    /** Guarda un recordatorio nuevo en Room (queda pendiente de envío) y lo devuelve con su id. */
+    /**
+     * Guarda un recordatorio nuevo en Room, a nombre de la cuenta activa (queda pendiente de envío), y lo
+     * devuelve con su id. Sin sesión lanza [java.io.IOException].
+     */
     suspend fun guardarRecordatorio(recordatorio: Recordatorio): Recordatorio
 
     /** Aplica los cambios en Room y los deja pendientes de envío. No hace nada si el recordatorio ya no existe. */
@@ -60,6 +77,19 @@ interface RecordatoriosRepository {
 
     /** Vuelve a poner en cola los recordatorios que quedaron en error y sincroniza. */
     suspend fun reintentarFallidos(): ResultadoSincronizacion
+
+    /**
+     * Prepara los datos locales para la cuenta que acaba de ingresar: los recordatorios creados antes de
+     * que existieran las cuentas pasan a ser suyos (solo ocurre la primera vez).
+     */
+    suspend fun prepararSesion(uid: String)
+
+    /**
+     * Herramienta de prueba (solo en el ambiente de desarrollo): intenta leer del servicio la colección de
+     * la cuenta [uid], que no es la propia, sin pasar por la interfaz normal. Sirve para comprobar que la
+     * autorización la impone el servicio y no la ausencia de un botón. Nunca guarda nada en Room.
+     */
+    suspend fun probarAccesoAOtraCuenta(uid: String): ResultadoPruebaAcceso
 
     suspend fun actualizarTema(tema: TemaApp)
     suspend fun actualizarMostrarCompletados(mostrar: Boolean)

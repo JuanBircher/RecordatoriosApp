@@ -12,14 +12,17 @@ sealed interface ResultadoRemoto<out T> {
 
     data class Exito<out T>(val valor: T) : ResultadoRemoto<T>
 
-    /** 4xx salvo 404: el servicio rechazó lo que se envió. */
-    data class SolicitudInvalida(val codigo: Int) : ResultadoRemoto<Nothing>
+    /** El servicio rechazó lo que se envió. [codigo] es el código del proveedor, para el registro. */
+    data class SolicitudInvalida(val codigo: String) : ResultadoRemoto<Nothing>
 
-    /** 404: el recurso no existe en el servicio. */
-    data object NoEncontrado : ResultadoRemoto<Nothing>
+    /**
+     * El servicio no reconoce la identidad o sus reglas no permiten la operación. No se arregla esperando
+     * ni reintentando con la misma sesión: la operación queda pendiente hasta que haya una sesión válida.
+     */
+    data object NoAutorizado : ResultadoRemoto<Nothing>
 
-    /** 5xx: falla del servicio. */
-    data class ErrorServidor(val codigo: Int) : ResultadoRemoto<Nothing> {
+    /** Falla del servicio; [codigo] es el código del proveedor. */
+    data class ErrorServidor(val codigo: String) : ResultadoRemoto<Nothing> {
         override val esTransitorio: Boolean get() = true
     }
 
@@ -36,14 +39,15 @@ sealed interface ResultadoRemoto<out T> {
 }
 
 /** Por qué una sincronización no pudo completarse. Se muestra a la persona como un aviso recuperable. */
-enum class CausaFallo { SinConexion, Timeout, ErrorServidor, SolicitudInvalida, RespuestaInvalida }
+enum class CausaFallo { SinConexion, Timeout, ErrorServidor, SolicitudInvalida, RespuestaInvalida, NoAutorizado }
 
 /** Traduce un resultado fallido a su causa; `null` si el resultado no es un fallo. */
 fun ResultadoRemoto<*>.causaDeFallo(): CausaFallo? = when (this) {
-    is ResultadoRemoto.Exito, ResultadoRemoto.NoEncontrado -> null
+    is ResultadoRemoto.Exito -> null
     is ResultadoRemoto.SolicitudInvalida -> CausaFallo.SolicitudInvalida
     is ResultadoRemoto.ErrorServidor -> CausaFallo.ErrorServidor
     ResultadoRemoto.RespuestaInvalida -> CausaFallo.RespuestaInvalida
     ResultadoRemoto.Timeout -> CausaFallo.Timeout
     ResultadoRemoto.SinConexion -> CausaFallo.SinConexion
+    ResultadoRemoto.NoAutorizado -> CausaFallo.NoAutorizado
 }

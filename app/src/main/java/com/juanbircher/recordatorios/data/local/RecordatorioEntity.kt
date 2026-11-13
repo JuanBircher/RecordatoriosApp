@@ -9,21 +9,27 @@ import androidx.room.PrimaryKey
  * para que no hagan falta convertidores. El resto de la app no la ve: la capa de datos la transforma
  * en [com.juanbircher.recordatorios.domain.Recordatorio] mediante los mapeos.
  *
- * - [id] es el identificador estable local; la interfaz navega y compara con él.
- * - [claveCliente] identifica el registro de punta a punta (UUID generado al crearlo). Se envía al
- *   servicio como clave de idempotencia: reenviar la misma creación nunca produce un segundo registro.
- * - [idRemoto] es el id que asignó el servicio; `null` mientras la creación no fue confirmada.
+ * - [id] es el identificador local; la interfaz navega y compara con él.
+ * - [uid] es la cuenta dueña del registro (el uid de Firebase Authentication). Todas las consultas filtran
+ *   por la cuenta con sesión activa: otra persona que ingrese en el mismo teléfono no ve estas filas.
+ *   Vale `""` solo para registros de la versión anterior, que todavía no tienen dueño.
+ * - [claveCliente] identifica el registro de punta a punta (UUID generado al crearlo). Es también el id
+ *   del documento en Firestore (`users/{uid}/reminders/{claveCliente}`): reenviar el mismo cambio
+ *   reemplaza ese documento y nunca crea otro.
+ * - [enRemoto] indica que el documento ya existe en Firestore. Sirve para saber si un borrado necesita la
+ *   red o si alcanza con quitar la fila.
  * - [eliminado] marca un borrado local que todavía debe comunicarse al servicio; la fila se quita
  *   cuando el servicio lo confirma.
  */
 @Entity(
     tableName = "recordatorios",
-    indices = [Index(value = ["claveCliente"], unique = true)]
+    indices = [Index(value = ["claveCliente"], unique = true), Index(value = ["uid"])]
 )
 data class RecordatorioEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val uid: String,
     val claveCliente: String,
-    val idRemoto: Long? = null,
+    val enRemoto: Boolean = false,
     val titulo: String,
     val descripcion: String? = null,
     val categoriaId: String,

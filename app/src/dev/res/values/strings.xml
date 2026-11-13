@@ -1,0 +1,4 @@
+<resources>
+    <!-- El flavor dev se instala junto a prod: el nombre distinto evita confundirlas en el lanzador. -->
+    <string name="app_name">Recordatorios DEV</string>
+</resources>

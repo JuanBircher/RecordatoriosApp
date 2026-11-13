@@ -1,10 +1,9 @@
 package com.juanbircher.recordatorios.ui
 
 import com.juanbircher.recordatorios.data.DatosSimulados
+import com.juanbircher.recordatorios.data.ResultadoPruebaAcceso
 import com.juanbircher.recordatorios.data.RecordatoriosRepository
 import com.juanbircher.recordatorios.data.ResumenSincronizacion
-import com.juanbircher.recordatorios.data.remote.ModoRed
-import com.juanbircher.recordatorios.data.remote.SimuladorServidor
 import com.juanbircher.recordatorios.data.sync.EstadoSync
 import com.juanbircher.recordatorios.data.sync.ResultadoSincronizacion
 import com.juanbircher.recordatorios.domain.Categoria
@@ -31,6 +30,9 @@ class RepositorioFalso(
     val eliminados = mutableListOf<Long>()
     var sincronizaciones = 0
     var reintentos = 0
+    val sesionesPreparadas = mutableListOf<String>()
+    val pruebasAcceso = mutableListOf<String>()
+    var resultadoPruebaAcceso: ResultadoPruebaAcceso = ResultadoPruebaAcceso.Permitido(0)
 
     var fallaAlObservar = false
     var fallaAlObtener = false
@@ -38,6 +40,8 @@ class RepositorioFalso(
     var fallaAlActualizar = false
     var fallaAlEliminar = false
     var fallaAlGuardarPreferencia = false
+    var fallaAlSincronizar = false
+    var fallaAlObservarResumen = false
 
     val preferenciasActuales = MutableStateFlow(Preferencias())
     val resumen = MutableStateFlow(ResumenSincronizacion())
@@ -46,7 +50,8 @@ class RepositorioFalso(
     override val preferencias: Flow<Preferencias> = preferenciasActuales
     override val estadoSincronizacion = MutableStateFlow<EstadoSync>(EstadoSync.Inactivo)
 
-    override fun observarResumenSincronizacion(): Flow<ResumenSincronizacion> = resumen
+    override fun observarResumenSincronizacion(): Flow<ResumenSincronizacion> =
+        if (fallaAlObservarResumen) flow { throw IOException("falla de prueba") } else resumen
 
     override fun observarRecordatorios(): Flow<List<Recordatorio>> = flow {
         delay(LATENCIA)
@@ -89,12 +94,23 @@ class RepositorioFalso(
 
     override suspend fun sincronizar(): ResultadoSincronizacion {
         sincronizaciones++
+        if (fallaAlSincronizar) throw IOException("falla de prueba")
         return ResultadoSincronizacion.Completa(0, 0)
     }
 
     override suspend fun reintentarFallidos(): ResultadoSincronizacion {
         reintentos++
+        if (fallaAlSincronizar) throw IOException("No hay una sesión activa")
         return ResultadoSincronizacion.Completa(0, 0)
+    }
+
+    override suspend fun prepararSesion(uid: String) {
+        sesionesPreparadas += uid
+    }
+
+    override suspend fun probarAccesoAOtraCuenta(uid: String): ResultadoPruebaAcceso {
+        pruebasAcceso += uid
+        return resultadoPruebaAcceso
     }
 
     override suspend fun actualizarTema(tema: TemaApp) {
@@ -114,13 +130,6 @@ class RepositorioFalso(
 
     companion object {
         const val LATENCIA = 100L
-    }
-}
-
-class SimuladorFalso : SimuladorServidor {
-    override val modo = MutableStateFlow(ModoRed.Normal)
-    override fun fijar(modo: ModoRed) {
-        this.modo.value = modo
     }
 }
 

@@ -6,8 +6,10 @@ import com.juanbircher.recordatorios.domain.EstadoSincronizacion
 import com.juanbircher.recordatorios.domain.Prioridad
 import com.juanbircher.recordatorios.domain.Recordatorio
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -30,15 +32,15 @@ class MapeosTest {
 
     @Test
     fun `dominio a entidad y de vuelta conserva todos los campos`() {
-        val entidad = completo.aEntidadNueva("clave-x")
+        val entidad = completo.aEntidadNueva("clave-x", ANA)
 
         assertEquals(completo.copy(id = 0, sincronizacion = EstadoSincronizacion.Pendiente), entidad.aDominio().copy(id = 0))
     }
 
     @Test
     fun `cada estado se guarda con su codigo y sus datos`() {
-        val pendiente = completo.copy(estado = EstadoRecordatorio.Pendiente).aEntidadNueva("k")
-        val cancelado = completo.copy(estado = EstadoRecordatorio.Cancelado("Se pospuso")).aEntidadNueva("k")
+        val pendiente = completo.copy(estado = EstadoRecordatorio.Pendiente).aEntidadNueva("k", ANA)
+        val cancelado = completo.copy(estado = EstadoRecordatorio.Cancelado("Se pospuso")).aEntidadNueva("k", ANA)
 
         assertEquals(RecordatorioEntity.PENDIENTE, pendiente.estadoTipo)
         assertEquals(EstadoRecordatorio.Cancelado("Se pospuso"), cancelado.aDominio().estado)
@@ -46,26 +48,28 @@ class MapeosTest {
     }
 
     @Test
-    fun `un registro nuevo queda pendiente de sincronizar y sin id remoto`() {
-        val entidad = completo.aEntidadNueva("k")
+    fun `un registro nuevo pertenece a la cuenta, queda pendiente y todavia no existe en el servicio`() {
+        val entidad = completo.aEntidadNueva("k", ANA)
 
         assertEquals(EstadoSincronizacion.Pendiente.name, entidad.sincronizacion)
-        assertNull(entidad.idRemoto)
+        assertFalse(entidad.enRemoto)
+        assertEquals(ANA, entidad.uid)
         assertEquals("k", entidad.claveCliente)
     }
 
     @Test
     fun `aplicar cambios conserva la identidad del registro y lo deja pendiente`() {
-        val original = completo.aEntidadNueva("k").copy(
+        val original = completo.aEntidadNueva("k", ANA).copy(
             id = 9,
-            idRemoto = 42,
+            enRemoto = true,
             sincronizacion = EstadoSincronizacion.Sincronizado.name
         )
 
         val cambiado = original.conCambiosDe(completo.copy(titulo = "Otro título"))
 
         assertEquals(9L, cambiado.id)
-        assertEquals(42L, cambiado.idRemoto)
+        assertTrue(cambiado.enRemoto)
+        assertEquals(ANA, cambiado.uid)
         assertEquals("k", cambiado.claveCliente)
         assertEquals("Otro título", cambiado.titulo)
         assertEquals(EstadoSincronizacion.Pendiente.name, cambiado.sincronizacion)
@@ -73,55 +77,56 @@ class MapeosTest {
 
     @Test
     fun `la entidad viaja al servicio como dto y vuelve igual`() {
-        val entidad = completo.aEntidadNueva("k").copy(idRemoto = 11)
+        val entidad = completo.aEntidadNueva("k", ANA)
 
-        val vuelta = entidad.aDto().aEntidad(categorias)!!
+        val vuelta = entidad.aDto().aEntidad(ANA, categorias)!!
 
-        assertEquals(entidad.copy(sincronizacion = EstadoSincronizacion.Sincronizado.name), vuelta)
+        assertEquals(entidad.copy(sincronizacion = EstadoSincronizacion.Sincronizado.name, enRemoto = true), vuelta)
     }
 
     @Test
     fun `un dto recibido conserva el id local del registro existente`() {
-        val existente = completo.aEntidadNueva("remota-1").copy(id = 8)
+        val existente = completo.aEntidadNueva("remota-1", ANA).copy(id = 8)
 
-        val actualizada = dtoDePrueba(clave = "remota-1").aEntidad(categorias, existente)!!
+        val actualizada = dtoDePrueba(clave = "remota-1").aEntidad(ANA, categorias, existente)!!
 
         assertEquals(8L, actualizada.id)
     }
 
     @Test
-    fun `un dto sin id, sin clave o sin titulo se descarta`() {
-        assertNull(dtoDePrueba().copy(id = null).aEntidad(categorias))
-        assertNull(dtoDePrueba().copy(claveCliente = " ").aEntidad(categorias))
-        assertNull(dtoDePrueba().copy(titulo = null).aEntidad(categorias))
+    fun `un dto sin clave o sin titulo se descarta`() {
+        assertNull(dtoDePrueba().copy(claveCliente = null).aEntidad(ANA, categorias))
+        assertNull(dtoDePrueba().copy(claveCliente = " ").aEntidad(ANA, categorias))
+        assertNull(dtoDePrueba().copy(titulo = null).aEntidad(ANA, categorias))
     }
 
     @Test
     fun `un dto con categoria desconocida, prioridad o estado invalidos se descarta`() {
-        assertNull(dtoDePrueba(categoriaId = "inexistente").aEntidad(categorias))
-        assertNull(dtoDePrueba().copy(prioridad = "URGENTE").aEntidad(categorias))
-        assertNull(dtoDePrueba().copy(estado = "ARCHIVADO").aEntidad(categorias))
+        assertNull(dtoDePrueba(categoriaId = "inexistente").aEntidad(ANA, categorias))
+        assertNull(dtoDePrueba().copy(prioridad = "URGENTE").aEntidad(ANA, categorias))
+        assertNull(dtoDePrueba().copy(estado = "ARCHIVADO").aEntidad(ANA, categorias))
     }
 
     @Test
     fun `un dto con fechas ilegibles o completado sin fecha se descarta`() {
-        assertNull(dtoDePrueba().copy(creadoEl = "ayer").aEntidad(categorias))
-        assertNull(dtoDePrueba().copy(fechaLimite = "32/13/2026").aEntidad(categorias))
-        assertNull(dtoDePrueba().copy(estado = RecordatorioEntity.COMPLETADO, completadoEl = null).aEntidad(categorias))
+        assertNull(dtoDePrueba().copy(creadoEl = "ayer").aEntidad(ANA, categorias))
+        assertNull(dtoDePrueba().copy(fechaLimite = "32/13/2026").aEntidad(ANA, categorias))
+        assertNull(dtoDePrueba().copy(estado = RecordatorioEntity.COMPLETADO, completadoEl = null).aEntidad(ANA, categorias))
     }
 
     @Test
     fun `un dto que rompe las reglas del dominio se descarta`() {
-        assertNull(dtoDePrueba(titulo = "abc").aEntidad(categorias))
-        assertNull(dtoDePrueba().copy(creadoEl = "2026-11-08", fechaLimite = "2026-11-01").aEntidad(categorias))
+        assertNull(dtoDePrueba(titulo = "abc").aEntidad(ANA, categorias))
+        assertNull(dtoDePrueba().copy(creadoEl = "2026-11-08", fechaLimite = "2026-11-01").aEntidad(ANA, categorias))
     }
 
     @Test
     fun `un dto valido se guarda como sincronizado`() {
-        val entidad = dtoDePrueba().aEntidad(categorias)
+        val entidad = dtoDePrueba().aEntidad(ANA, categorias)
 
         assertNotNull(entidad)
         assertEquals(EstadoSincronizacion.Sincronizado.name, entidad!!.sincronizacion)
-        assertEquals(500L, entidad.idRemoto)
+        assertTrue(entidad.enRemoto)
+        assertEquals(ANA, entidad.uid)
     }
 }
